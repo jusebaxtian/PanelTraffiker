@@ -30,10 +30,19 @@ export interface AdInsight {
   ctr?: string;
   reach?: string;
   frequency?: string;
+  unique_clicks?: string;
   actions?: ActionValue[];
   cost_per_action_type?: ActionValue[];
   date_start?: string;
   date_stop?: string;
+}
+
+export interface Campaign {
+  id: string;
+  objective?: string;
+  status?: string;
+  effective_status?: string;
+  daily_budget?: string;
 }
 
 const CONVERSATION_ACTION_TYPES = [
@@ -66,6 +75,7 @@ const DEFAULT_FIELDS = [
   "ctr",
   "reach",
   "frequency",
+  "unique_clicks",
   "actions",
   "cost_per_action_type",
 ].join(",");
@@ -107,5 +117,41 @@ export async function fetchAllAccountsInsights(
   const results = await Promise.all(
     accountIds.map((id) => fetchAccountInsights(id, options))
   );
+  return results.flat();
+}
+
+interface MetaCampaignsResponse {
+  data: Campaign[];
+  paging?: { next?: string };
+  error?: { message: string; type: string; code: number };
+}
+
+export async function fetchAccountCampaigns(adAccountId: string): Promise<Campaign[]> {
+  const url = new URL(`${META_BASE_URL}/${adAccountId}/campaigns`);
+  url.searchParams.set("access_token", getAccessToken());
+  url.searchParams.set("fields", "id,objective,status,effective_status,daily_budget");
+  url.searchParams.set("limit", "500");
+
+  const results: Campaign[] = [];
+  let nextUrl: string | null = url.toString();
+
+  while (nextUrl) {
+    const res: Response = await fetch(nextUrl);
+    const json: MetaCampaignsResponse = await res.json();
+
+    if (json.error) {
+      throw new Error(`Meta API error (${adAccountId}): ${json.error.message}`);
+    }
+
+    results.push(...json.data);
+    nextUrl = json.paging?.next ?? null;
+  }
+
+  return results;
+}
+
+export async function fetchAllAccountsCampaigns(): Promise<Campaign[]> {
+  const accountIds = getAdAccountIds();
+  const results = await Promise.all(accountIds.map((id) => fetchAccountCampaigns(id)));
   return results.flat();
 }

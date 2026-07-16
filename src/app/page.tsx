@@ -4,6 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import type { AdInsight } from "@/lib/metaAds";
 import { conversationsStarted } from "@/lib/metaAds";
 
+interface EnrichedInsight extends AdInsight {
+  result: number;
+  status?: string;
+  objective?: string;
+  daily_budget?: string;
+  today_spend: number;
+}
+
 function currency(n: number) {
   return n.toLocaleString("es-CO", {
     style: "currency",
@@ -16,6 +24,29 @@ function number(n: number) {
   return n.toLocaleString("es-CO");
 }
 
+function humanize(value?: string) {
+  if (!value) return "-";
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+function statusColor(status?: string) {
+  switch (status) {
+    case "ACTIVE":
+      return "var(--good)";
+    case "PAUSED":
+      return "var(--text-muted)";
+    case "DELETED":
+    case "ARCHIVED":
+      return "var(--critical)";
+    default:
+      return "var(--series-3)";
+  }
+}
+
 const DATE_PRESETS = [
   { label: "Hoy", value: "today" },
   { label: "Ayer", value: "yesterday" },
@@ -25,7 +56,7 @@ const DATE_PRESETS = [
 ] as const;
 
 export default function Home() {
-  const [insights, setInsights] = useState<AdInsight[]>([]);
+  const [insights, setInsights] = useState<EnrichedInsight[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [datePreset, setDatePreset] = useState<string>("last_7d");
@@ -91,7 +122,7 @@ export default function Home() {
         </span>
       </header>
 
-      <main className="mx-auto max-w-6xl px-8 py-8">
+      <main className="mx-auto max-w-7xl px-8 py-8">
         <div className="mb-6 flex flex-wrap gap-2" role="tablist" aria-label="Rango de fechas">
           {DATE_PRESETS.map((preset) => {
             const active = preset.value === datePreset;
@@ -146,10 +177,21 @@ export default function Home() {
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr style={{ borderBottom: "1px solid var(--gridline)" }}>
-                      {["Cuenta", "Campaña", "Gasto", "Impresiones", "Clics", "CTR", "CPC"].map((h) => (
+                      {[
+                        "Campaña",
+                        "Estado",
+                        "Objetivo",
+                        "Resultado",
+                        "Costo/resultado",
+                        "Gasto diario",
+                        "Gasto hoy",
+                        "CTR",
+                        "Frecuencia",
+                        "Clics únicos",
+                      ].map((h) => (
                         <th
                           key={h}
-                          className="px-4 py-3 text-xs font-medium uppercase tracking-wide"
+                          className="whitespace-nowrap px-4 py-3 text-xs font-medium uppercase tracking-wide"
                           style={{ color: "var(--text-muted)" }}
                         >
                           {h}
@@ -158,40 +200,63 @@ export default function Home() {
                     </tr>
                   </thead>
                   <tbody>
-                    {insights.map((row, idx) => (
-                      <tr
-                        key={idx}
-                        className="transition-colors"
-                        style={{
-                          borderTop: idx === 0 ? "none" : "1px solid var(--gridline)",
-                        }}
-                      >
-                        <td className="px-4 py-3" style={{ color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
-                          {row.account_id?.replace("act_", "")}
-                        </td>
-                        <td className="px-4 py-3" style={{ color: "var(--text-primary)" }}>
-                          {row.campaign_name ?? "-"}
-                        </td>
-                        <td className="px-4 py-3" style={{ color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
-                          {currency(Number(row.spend ?? 0))}
-                        </td>
-                        <td className="px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
-                          {number(Number(row.impressions ?? 0))}
-                        </td>
-                        <td className="px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
-                          {number(Number(row.clicks ?? 0))}
-                        </td>
-                        <td className="px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
-                          {Number(row.ctr ?? 0).toFixed(2)}%
-                        </td>
-                        <td className="px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
-                          {currency(Number(row.cpc ?? 0))}
-                        </td>
-                      </tr>
-                    ))}
+                    {insights.map((row, idx) => {
+                      const costPerRowResult = row.result > 0 ? Number(row.spend ?? 0) / row.result : 0;
+                      return (
+                        <tr
+                          key={idx}
+                          style={{ borderTop: idx === 0 ? "none" : "1px solid var(--gridline)" }}
+                        >
+                          <td className="px-4 py-3">
+                            <div style={{ color: "var(--text-primary)" }}>{row.campaign_name ?? "-"}</div>
+                            <div
+                              className="text-xs"
+                              style={{ color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}
+                            >
+                              {row.account_id?.replace("act_", "")}
+                            </div>
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3">
+                            <span
+                              className="rounded-full px-2 py-0.5 text-xs font-medium"
+                              style={{
+                                color: statusColor(row.status),
+                                background: "rgba(255,255,255,0.06)",
+                              }}
+                            >
+                              {humanize(row.status)}
+                            </span>
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3" style={{ color: "var(--text-secondary)" }}>
+                            {humanize(row.objective)}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3" style={{ color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
+                            {number(row.result)}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+                            {currency(costPerRowResult)}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+                            {row.daily_budget ? currency(Number(row.daily_budget)) : "-"}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+                            {currency(row.today_spend)}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+                            {Number(row.ctr ?? 0).toFixed(2)}%
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+                            {Number(row.frequency ?? 0).toFixed(2)}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+                            {number(Number(row.unique_clicks ?? 0))}
+                          </td>
+                        </tr>
+                      );
+                    })}
                     {insights.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="px-4 py-6 text-center" style={{ color: "var(--text-muted)" }}>
+                        <td colSpan={10} className="px-4 py-6 text-center" style={{ color: "var(--text-muted)" }}>
                           No hay datos disponibles
                         </td>
                       </tr>
