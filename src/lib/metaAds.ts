@@ -13,6 +13,11 @@ export function getAdAccountIds(): string[] {
   return ids.split(",").map((id) => id.trim());
 }
 
+export interface ActionValue {
+  action_type: string;
+  value: string;
+}
+
 export interface AdInsight {
   account_id: string;
   campaign_id?: string;
@@ -25,8 +30,23 @@ export interface AdInsight {
   ctr?: string;
   reach?: string;
   frequency?: string;
+  actions?: ActionValue[];
+  cost_per_action_type?: ActionValue[];
   date_start?: string;
   date_stop?: string;
+}
+
+const CONVERSATION_ACTION_TYPES = [
+  "onsite_conversion.messaging_conversation_started_7d",
+  "onsite_conversion.total_messaging_connection",
+  "messaging_conversation_started_7d",
+];
+
+export function conversationsStarted(insight: AdInsight): number {
+  if (!insight.actions) return 0;
+  return insight.actions
+    .filter((a) => CONVERSATION_ACTION_TYPES.includes(a.action_type))
+    .reduce((sum, a) => sum + Number(a.value ?? 0), 0);
 }
 
 interface MetaInsightsResponse {
@@ -46,6 +66,8 @@ const DEFAULT_FIELDS = [
   "ctr",
   "reach",
   "frequency",
+  "actions",
+  "cost_per_action_type",
 ].join(",");
 
 export async function fetchAccountInsights(

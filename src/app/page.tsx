@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { AdInsight } from "@/lib/metaAds";
+import { conversationsStarted } from "@/lib/metaAds";
 
 function currency(n: number) {
   return n.toLocaleString("es-CO", {
@@ -15,13 +16,24 @@ function number(n: number) {
   return n.toLocaleString("es-CO");
 }
 
+const DATE_PRESETS = [
+  { label: "Hoy", value: "today" },
+  { label: "Ayer", value: "yesterday" },
+  { label: "7 días", value: "last_7d" },
+  { label: "Este mes", value: "this_month" },
+  { label: "Mes anterior", value: "last_month" },
+] as const;
+
 export default function Home() {
   const [insights, setInsights] = useState<AdInsight[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [datePreset, setDatePreset] = useState<string>("last_7d");
 
   useEffect(() => {
-    fetch("/api/insights")
+    setLoading(true);
+    setError(null);
+    fetch(`/api/insights?date_preset=${datePreset}`)
       .then((res) => res.json())
       .then((json) => {
         if (json.error) {
@@ -32,7 +44,7 @@ export default function Home() {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [datePreset]);
 
   const totals = useMemo(
     () =>
@@ -41,15 +53,17 @@ export default function Home() {
           acc.spend += Number(i.spend ?? 0);
           acc.impressions += Number(i.impressions ?? 0);
           acc.clicks += Number(i.clicks ?? 0);
+          acc.reach += Number(i.reach ?? 0);
+          acc.conversations += conversationsStarted(i);
           return acc;
         },
-        { spend: 0, impressions: 0, clicks: 0 }
+        { spend: 0, impressions: 0, clicks: 0, reach: 0, conversations: 0 }
       ),
     [insights]
   );
 
   const avgCtr = totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0;
-  const avgCpc = totals.clicks > 0 ? totals.spend / totals.clicks : 0;
+  const costPerResult = totals.conversations > 0 ? totals.spend / totals.conversations : 0;
   const accountCount = useMemo(
     () => new Set(insights.map((i) => i.account_id)).size,
     [insights]
@@ -78,6 +92,28 @@ export default function Home() {
       </header>
 
       <main className="mx-auto max-w-6xl px-8 py-8">
+        <div className="mb-6 flex flex-wrap gap-2" role="tablist" aria-label="Rango de fechas">
+          {DATE_PRESETS.map((preset) => {
+            const active = preset.value === datePreset;
+            return (
+              <button
+                key={preset.value}
+                role="tab"
+                aria-selected={active}
+                onClick={() => setDatePreset(preset.value)}
+                className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors"
+                style={{
+                  background: active ? "var(--brand)" : "var(--surface)",
+                  color: active ? "#ffffff" : "var(--text-secondary)",
+                  border: `1px solid ${active ? "var(--brand)" : "var(--border)"}`,
+                }}
+              >
+                {preset.label}
+              </button>
+            );
+          })}
+        </div>
+
         {loading && (
           <p style={{ color: "var(--text-secondary)" }}>Cargando métricas...</p>
         )}
@@ -93,12 +129,13 @@ export default function Home() {
 
         {!loading && !error && (
           <>
-            <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
               <StatTile label="Cuentas" value={String(accountCount)} />
-              <StatTile label="Gasto total" value={currency(totals.spend)} accent="var(--brand)" />
-              <StatTile label="Impresiones" value={number(totals.impressions)} />
-              <StatTile label="Clics" value={number(totals.clicks)} />
-              <StatTile label="CTR / CPC prom." value={`${avgCtr.toFixed(2)}% · ${currency(avgCpc)}`} />
+              <StatTile label="Inversión total" value={currency(totals.spend)} accent="var(--brand)" />
+              <StatTile label="Alcance" value={number(totals.reach)} />
+              <StatTile label="Costo por resultado" value={currency(costPerResult)} />
+              <StatTile label="Conversaciones iniciadas" value={number(totals.conversations)} accent="var(--series-2)" />
+              <StatTile label="CTR" value={`${avgCtr.toFixed(2)}%`} />
             </div>
 
             <div
