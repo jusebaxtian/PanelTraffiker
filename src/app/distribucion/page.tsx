@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Office } from "@/lib/distribucion";
+import type { Agent, Office } from "@/lib/distribucion";
 import { agentValue, officeTotal, JUNIOR_VALUE, EJECUTIVO_DEFAULT_VALUE } from "@/lib/distribucion";
 
 function currency(n: number) {
@@ -94,6 +94,30 @@ export default function DistribucionPage() {
     await fetch(`/api/agents/${agentId}`, { method: "DELETE" });
   }
 
+  async function updateAgent(
+    officeId: string,
+    agentId: string,
+    payload: { name: string; type: "junior" | "ejecutivo"; custom_value: number | null }
+  ) {
+    const res = await fetch(`/api/agents/${agentId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (json.error) {
+      setError(json.error);
+      return;
+    }
+    setOffices((prev) =>
+      prev.map((o) =>
+        o.id === officeId
+          ? { ...o, agents: o.agents.map((a) => (a.id === agentId ? json.data : a)) }
+          : o
+      )
+    );
+  }
+
   return (
     <div className="min-h-screen" style={{ background: "var(--page)" }}>
       <header
@@ -141,7 +165,7 @@ export default function DistribucionPage() {
         )}
 
         {!loading && (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(360px, 420px))" }}>
             {offices.map((office) => (
               <OfficeCard
                 key={office.id}
@@ -150,6 +174,7 @@ export default function DistribucionPage() {
                 onUpdateAdmin={(amount) => updateAdmin(office.id, amount)}
                 onAddAgent={(payload) => addAgent(office.id, payload)}
                 onDeleteAgent={(agentId) => deleteAgent(office.id, agentId)}
+                onUpdateAgent={(agentId, payload) => updateAgent(office.id, agentId, payload)}
               />
             ))}
             {offices.length === 0 && (
@@ -168,13 +193,19 @@ function OfficeCard({
   onUpdateAdmin,
   onAddAgent,
   onDeleteAgent,
+  onUpdateAgent,
 }: {
   office: Office;
   onDelete: () => void;
   onUpdateAdmin: (amount: number) => void;
   onAddAgent: (payload: { name: string; type: "junior" | "ejecutivo"; custom_value?: number }) => void;
   onDeleteAgent: (agentId: string) => void;
+  onUpdateAgent: (
+    agentId: string,
+    payload: { name: string; type: "junior" | "ejecutivo"; custom_value: number | null }
+  ) => void;
 }) {
+  const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [type, setType] = useState<"junior" | "ejecutivo">("junior");
@@ -217,37 +248,67 @@ function OfficeCard({
         </button>
       </div>
 
-      <table className="w-full text-sm">
+      <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
+        <colgroup>
+          <col style={{ width: 28 }} />
+          <col />
+          <col style={{ width: 96 }} />
+          <col style={{ width: 44 }} />
+        </colgroup>
         <tbody>
-          {office.agents.map((agent, idx) => (
-            <tr
-              key={agent.id}
-              className="group"
-              style={{
-                background: agent.type === "ejecutivo" ? "rgba(57,135,229,0.18)" : "transparent",
-                borderBottom: "1px solid var(--gridline)",
-              }}
-            >
-              <td className="w-8 px-3 py-2 text-right" style={{ color: "var(--text-muted)" }}>
-                {idx + 1}
-              </td>
-              <td className="px-2 py-2" style={{ color: "var(--text-primary)" }}>
-                {agent.name}
-              </td>
-              <td className="px-2 py-2 text-right" style={{ color: "var(--good)", fontVariantNumeric: "tabular-nums" }}>
-                {currency(agentValue(agent))}
-              </td>
-              <td className="w-8 px-2 py-2 text-right">
-                <button
-                  onClick={() => onDeleteAgent(agent.id)}
-                  className="text-xs opacity-0 transition-opacity group-hover:opacity-100"
-                  style={{ color: "var(--critical)" }}
-                >
-                  ✕
-                </button>
-              </td>
-            </tr>
-          ))}
+          {office.agents.map((agent, idx) =>
+            editingAgentId === agent.id ? (
+              <AgentEditRow
+                key={agent.id}
+                agent={agent}
+                index={idx}
+                onCancel={() => setEditingAgentId(null)}
+                onSave={(payload) => {
+                  onUpdateAgent(agent.id, payload);
+                  setEditingAgentId(null);
+                }}
+              />
+            ) : (
+              <tr
+                key={agent.id}
+                className="group"
+                style={{
+                  background: agent.type === "ejecutivo" ? "rgba(57,135,229,0.18)" : "transparent",
+                  borderBottom: "1px solid var(--gridline)",
+                }}
+              >
+                <td className="py-1.5 pl-3 pr-1 text-right" style={{ color: "var(--text-muted)" }}>
+                  {idx + 1}
+                </td>
+                <td className="truncate py-1.5 pr-1" style={{ color: "var(--text-primary)" }}>
+                  {agent.name}
+                </td>
+                <td className="py-1.5 pr-1 text-right" style={{ color: "var(--good)", fontVariantNumeric: "tabular-nums" }}>
+                  {currency(agentValue(agent))}
+                </td>
+                <td className="py-1.5 pr-2 text-right">
+                  <span className="inline-flex gap-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+                    <button
+                      onClick={() => setEditingAgentId(agent.id)}
+                      className="text-xs"
+                      style={{ color: "var(--text-muted)" }}
+                      title="Editar agente"
+                    >
+                      ✎
+                    </button>
+                    <button
+                      onClick={() => onDeleteAgent(agent.id)}
+                      className="text-xs"
+                      style={{ color: "var(--critical)" }}
+                      title="Eliminar agente"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                </td>
+              </tr>
+            )
+          )}
         </tbody>
       </table>
 
@@ -350,5 +411,77 @@ function OfficeCard({
         </div>
       </div>
     </div>
+  );
+}
+
+function AgentEditRow({
+  agent,
+  index,
+  onSave,
+  onCancel,
+}: {
+  agent: Agent;
+  index: number;
+  onSave: (payload: { name: string; type: "junior" | "ejecutivo"; custom_value: number | null }) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(agent.name);
+  const [type, setType] = useState<"junior" | "ejecutivo">(agent.type);
+  const [customValue, setCustomValue] = useState(agent.custom_value != null ? String(agent.custom_value) : "");
+
+  function save() {
+    if (!name.trim()) return;
+    onSave({
+      name: name.trim(),
+      type,
+      custom_value: type === "ejecutivo" && customValue ? Number(customValue) : null,
+    });
+  }
+
+  return (
+    <tr style={{ background: "rgba(255,255,255,0.04)", borderBottom: "1px solid var(--gridline)" }}>
+      <td className="py-1.5 pl-3 pr-1 text-right" style={{ color: "var(--text-muted)" }}>
+        {index + 1}
+      </td>
+      <td colSpan={3} className="px-1 py-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <input
+            autoFocus
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && save()}
+            className="min-w-24 flex-1 rounded px-1.5 py-1 text-sm outline-none"
+            style={{ background: "var(--page)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+          />
+          <select
+            value={type}
+            onChange={(e) => setType(e.target.value as "junior" | "ejecutivo")}
+            className="rounded px-1.5 py-1 text-sm outline-none"
+            style={{ background: "var(--page)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+          >
+            <option value="junior">Junior</option>
+            <option value="ejecutivo">Ejecutivo</option>
+          </select>
+          {type === "ejecutivo" && (
+            <input
+              type="number"
+              placeholder={String(EJECUTIVO_DEFAULT_VALUE)}
+              value={customValue}
+              onChange={(e) => setCustomValue(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && save()}
+              className="w-24 rounded px-1.5 py-1 text-sm outline-none"
+              style={{ background: "var(--page)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+            />
+          )}
+          <button onClick={save} className="text-xs font-medium" style={{ color: "var(--brand)" }}>
+            Guardar
+          </button>
+          <button onClick={onCancel} className="text-xs" style={{ color: "var(--text-muted)" }}>
+            Cancelar
+          </button>
+        </div>
+      </td>
+    </tr>
   );
 }
