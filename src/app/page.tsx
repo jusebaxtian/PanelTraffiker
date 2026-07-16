@@ -181,17 +181,9 @@ export default function Home() {
         className="sticky top-0 z-10 flex items-center justify-between px-8 py-4"
         style={{ background: "var(--page)", borderBottom: "1px solid var(--border)" }}
       >
-        <div className="flex items-center gap-2">
-          <div
-            className="flex h-8 w-8 items-center justify-center rounded-md text-sm font-bold"
-            style={{ background: "var(--brand)", color: "#ffffff" }}
-          >
-            PT
-          </div>
-          <span className="text-lg font-semibold tracking-tight" style={{ color: "var(--text-primary)" }}>
-            PanelTraffiker
-          </span>
-        </div>
+        <span className="text-lg font-semibold tracking-tight" style={{ color: "var(--text-primary)" }}>
+          Dashboard
+        </span>
         <span className="text-sm" style={{ color: "var(--text-muted)" }}>
           Meta Ads Dashboard
         </span>
