@@ -9,7 +9,7 @@ export interface CostPerLeadDatum {
   leads: number;
 }
 
-const THRESHOLD = 6000;
+const DEFAULT_THRESHOLD = 6000;
 
 function currency(n: number) {
   return n.toLocaleString("es-CO", {
@@ -19,7 +19,14 @@ function currency(n: number) {
   });
 }
 
-export default function CostPerLeadChart({ data }: { data: CostPerLeadDatum[] }) {
+export default function CostPerLeadChart({
+  data,
+  threshold = DEFAULT_THRESHOLD,
+}: {
+  data: CostPerLeadDatum[];
+  threshold?: number;
+}) {
+  const THRESHOLD = threshold;
   const [hover, setHover] = useState<number | null>(null);
 
   const rows = useMemo(

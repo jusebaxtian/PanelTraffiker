@@ -38,6 +38,7 @@ export default function GraficosPage() {
   const [customRange, setCustomRange] = useState<{ since: string; until: string } | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
+  const [threshold, setThreshold] = useState(6000);
 
   useEffect(() => {
     setLoading(true);
@@ -184,6 +185,24 @@ export default function GraficosPage() {
               </option>
             ))}
           </select>
+
+          <label
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
+            style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+          >
+            <span className="whitespace-nowrap" style={{ color: "var(--text-muted)" }}>
+              Tope $
+            </span>
+            <input
+              type="number"
+              min={0}
+              step={500}
+              value={threshold}
+              onChange={(e) => setThreshold(Math.max(0, Number(e.target.value) || 0))}
+              className="w-24 bg-transparent text-right outline-none"
+              style={{ color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}
+            />
+          </label>
         </div>
 
         {loading && <p style={{ color: "var(--text-secondary)" }}>Cargando métricas...</p>}
@@ -197,7 +216,7 @@ export default function GraficosPage() {
           </p>
         )}
 
-        {!loading && !error && <CostPerLeadChart data={chartData} />}
+        {!loading && !error && <CostPerLeadChart data={chartData} threshold={threshold} />}
       </main>
     </div>
   );
