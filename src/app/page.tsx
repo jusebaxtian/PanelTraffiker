@@ -294,8 +294,8 @@ export default function Home() {
               className="overflow-hidden rounded-lg"
               style={{ border: "1px solid var(--border)", background: "var(--surface)" }}
             >
-              <div className="overflow-x-auto">
-                <table className="text-left text-sm" style={{ tableLayout: "fixed", width: "max-content" }}>
+              <div>
+                <table className="w-full text-left text-sm" style={{ tableLayout: "fixed" }}>
                   <colgroup>
                     {COLUMNS.map((col) => (
                       <col key={col.key} style={{ width: widths[col.key] }} />
