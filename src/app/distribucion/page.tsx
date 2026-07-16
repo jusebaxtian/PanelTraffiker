@@ -132,7 +132,7 @@ export default function DistribucionPage() {
         </span>
       </header>
 
-      <main className="mx-auto max-w-7xl px-8 py-8">
+      <main className="mx-auto max-w-[1600px] px-8 py-8">
         <div className="mb-8 flex flex-wrap items-center gap-2">
           <input
             type="text"
@@ -165,7 +165,7 @@ export default function DistribucionPage() {
         )}
 
         {!loading && (
-          <div className="grid grid-cols-1 gap-6" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(360px, 420px))" }}>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
             {offices.map((office) => (
               <OfficeCard
                 key={office.id}
