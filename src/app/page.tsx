@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { AdInsight } from "@/lib/metaAds";
 import { conversationsStarted } from "@/lib/metaAds";
 
@@ -55,16 +55,85 @@ const DATE_PRESETS = [
   { label: "Mes anterior", value: "last_month" },
 ] as const;
 
+const COLUMNS = [
+  { key: "campaign", label: "Campaña", defaultWidth: 260 },
+  { key: "status", label: "Estado", defaultWidth: 110 },
+  { key: "objective", label: "Objetivo", defaultWidth: 150 },
+  { key: "result", label: "Resultado", defaultWidth: 110 },
+  { key: "costPerResult", label: "Costo/resultado", defaultWidth: 140 },
+  { key: "dailyBudget", label: "Gasto diario", defaultWidth: 120 },
+  { key: "todaySpend", label: "Gasto hoy", defaultWidth: 120 },
+  { key: "ctr", label: "CTR", defaultWidth: 90 },
+  { key: "frequency", label: "Frecuencia", defaultWidth: 100 },
+  { key: "uniqueClicks", label: "Clics únicos", defaultWidth: 110 },
+] as const;
+
+const COLUMN_WIDTHS_STORAGE_KEY = "paneltraffiker.columnWidths";
+const MIN_COLUMN_WIDTH = 70;
+
+function useColumnWidths() {
+  const [widths, setWidths] = useState<Record<string, number>>(() => {
+    const defaults = Object.fromEntries(COLUMNS.map((c) => [c.key, c.defaultWidth]));
+    if (typeof window === "undefined") return defaults;
+    try {
+      const stored = window.localStorage.getItem(COLUMN_WIDTHS_STORAGE_KEY);
+      return stored ? { ...defaults, ...JSON.parse(stored) } : defaults;
+    } catch {
+      return defaults;
+    }
+  });
+
+  const resizing = useRef<{ key: string; startX: number; startWidth: number } | null>(null);
+
+  useEffect(() => {
+    function onMove(e: PointerEvent | MouseEvent) {
+      if (!resizing.current) return;
+      const { key, startX, startWidth } = resizing.current;
+      const next = Math.max(MIN_COLUMN_WIDTH, startWidth + (e.clientX - startX));
+      setWidths((prev) => {
+        const updated = { ...prev, [key]: next };
+        window.localStorage.setItem(COLUMN_WIDTHS_STORAGE_KEY, JSON.stringify(updated));
+        return updated;
+      });
+    }
+    function onUp() {
+      resizing.current = null;
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, []);
+
+  function startResize(key: string, startX: number) {
+    resizing.current = { key, startX, startWidth: widths[key] };
+  }
+
+  return { widths, startResize };
+}
+
 export default function Home() {
   const [insights, setInsights] = useState<EnrichedInsight[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [datePreset, setDatePreset] = useState<string>("last_7d");
+  const [customRange, setCustomRange] = useState<{ since: string; until: string } | null>(null);
+  const [search, setSearch] = useState("");
+  const { widths, startResize } = useColumnWidths();
 
   useEffect(() => {
     setLoading(true);
     setError(null);
-    fetch(`/api/insights?date_preset=${datePreset}`)
+    const params = customRange
+      ? `since=${customRange.since}&until=${customRange.until}`
+      : `date_preset=${datePreset}`;
+    fetch(`/api/insights?${params}`)
       .then((res) => res.json())
       .then((json) => {
         if (json.error) {
@@ -75,11 +144,17 @@ export default function Home() {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [datePreset]);
+  }, [datePreset, customRange]);
+
+  const filteredInsights = useMemo(() => {
+    if (!search.trim()) return insights;
+    const q = search.trim().toLowerCase();
+    return insights.filter((i) => i.campaign_name?.toLowerCase().includes(q));
+  }, [insights, search]);
 
   const totals = useMemo(
     () =>
-      insights.reduce(
+      filteredInsights.reduce(
         (acc, i) => {
           acc.spend += Number(i.spend ?? 0);
           acc.impressions += Number(i.impressions ?? 0);
@@ -90,14 +165,14 @@ export default function Home() {
         },
         { spend: 0, impressions: 0, clicks: 0, reach: 0, conversations: 0 }
       ),
-    [insights]
+    [filteredInsights]
   );
 
   const avgCtr = totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0;
   const costPerResult = totals.conversations > 0 ? totals.spend / totals.conversations : 0;
   const accountCount = useMemo(
-    () => new Set(insights.map((i) => i.account_id)).size,
-    [insights]
+    () => new Set(filteredInsights.map((i) => i.account_id)).size,
+    [filteredInsights]
   );
 
   return (
@@ -123,15 +198,16 @@ export default function Home() {
       </header>
 
       <main className="mx-auto max-w-7xl px-8 py-8">
-        <div className="mb-6 flex flex-wrap gap-2" role="tablist" aria-label="Rango de fechas">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
           {DATE_PRESETS.map((preset) => {
-            const active = preset.value === datePreset;
+            const active = !customRange && preset.value === datePreset;
             return (
               <button
                 key={preset.value}
-                role="tab"
-                aria-selected={active}
-                onClick={() => setDatePreset(preset.value)}
+                onClick={() => {
+                  setCustomRange(null);
+                  setDatePreset(preset.value);
+                }}
                 className="rounded-full px-4 py-1.5 text-sm font-medium transition-colors"
                 style={{
                   background: active ? "var(--brand)" : "var(--surface)",
@@ -143,6 +219,51 @@ export default function Home() {
               </button>
             );
           })}
+
+          <div
+            className="flex items-center gap-2 rounded-full px-3 py-1.5"
+            style={{
+              background: customRange ? "var(--brand)" : "var(--surface)",
+              border: `1px solid ${customRange ? "var(--brand)" : "var(--border)"}`,
+            }}
+          >
+            <input
+              type="date"
+              aria-label="Desde"
+              value={customRange?.since ?? ""}
+              onChange={(e) =>
+                setCustomRange((prev) => ({ since: e.target.value, until: prev?.until ?? e.target.value }))
+              }
+              className="bg-transparent text-sm outline-none"
+              style={{ color: customRange ? "#ffffff" : "var(--text-secondary)", colorScheme: "dark" }}
+            />
+            <span style={{ color: customRange ? "#ffffff" : "var(--text-muted)" }}>–</span>
+            <input
+              type="date"
+              aria-label="Hasta"
+              value={customRange?.until ?? ""}
+              onChange={(e) =>
+                setCustomRange((prev) => ({ since: prev?.since ?? e.target.value, until: e.target.value }))
+              }
+              className="bg-transparent text-sm outline-none"
+              style={{ color: customRange ? "#ffffff" : "var(--text-secondary)", colorScheme: "dark" }}
+            />
+          </div>
+        </div>
+
+        <div className="mb-6">
+          <input
+            type="text"
+            placeholder="Buscar campaña..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full max-w-sm rounded-lg px-3 py-2 text-sm outline-none sm:w-72"
+            style={{
+              background: "var(--surface)",
+              color: "var(--text-primary)",
+              border: "1px solid var(--border)",
+            }}
+          />
         </div>
 
         {loading && (
@@ -174,41 +295,50 @@ export default function Home() {
               style={{ border: "1px solid var(--border)", background: "var(--surface)" }}
             >
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
+                <table className="text-left text-sm" style={{ tableLayout: "fixed", width: "max-content" }}>
+                  <colgroup>
+                    {COLUMNS.map((col) => (
+                      <col key={col.key} style={{ width: widths[col.key] }} />
+                    ))}
+                  </colgroup>
                   <thead>
                     <tr style={{ borderBottom: "1px solid var(--gridline)" }}>
-                      {[
-                        "Campaña",
-                        "Estado",
-                        "Objetivo",
-                        "Resultado",
-                        "Costo/resultado",
-                        "Gasto diario",
-                        "Gasto hoy",
-                        "CTR",
-                        "Frecuencia",
-                        "Clics únicos",
-                      ].map((h) => (
+                      {COLUMNS.map((col) => (
                         <th
-                          key={h}
-                          className="whitespace-nowrap px-4 py-3 text-xs font-medium uppercase tracking-wide"
+                          key={col.key}
+                          className="relative select-none whitespace-nowrap px-4 py-3 text-xs font-medium uppercase tracking-wide"
                           style={{ color: "var(--text-muted)" }}
                         >
-                          {h}
+                          {col.label}
+                          <span
+                            onPointerDown={(e) => {
+                              e.preventDefault();
+                              (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+                              startResize(col.key, e.clientX);
+                            }}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              startResize(col.key, e.clientX);
+                            }}
+                            className="absolute right-0 top-0 h-full w-2 cursor-col-resize"
+                            style={{ userSelect: "none", touchAction: "none" }}
+                          />
                         </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {insights.map((row, idx) => {
+                    {filteredInsights.map((row, idx) => {
                       const costPerRowResult = row.result > 0 ? Number(row.spend ?? 0) / row.result : 0;
                       return (
                         <tr
                           key={idx}
                           style={{ borderTop: idx === 0 ? "none" : "1px solid var(--gridline)" }}
                         >
-                          <td className="px-4 py-3">
-                            <div style={{ color: "var(--text-primary)" }}>{row.campaign_name ?? "-"}</div>
+                          <td className="overflow-hidden px-4 py-3">
+                            <div className="truncate" style={{ color: "var(--text-primary)" }}>
+                              {row.campaign_name ?? "-"}
+                            </div>
                             <div
                               className="text-xs"
                               style={{ color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}
@@ -216,7 +346,7 @@ export default function Home() {
                               {row.account_id?.replace("act_", "")}
                             </div>
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3">
+                          <td className="overflow-hidden px-4 py-3">
                             <span
                               className="rounded-full px-2 py-0.5 text-xs font-medium"
                               style={{
@@ -227,36 +357,36 @@ export default function Home() {
                               {humanize(row.status)}
                             </span>
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3" style={{ color: "var(--text-secondary)" }}>
+                          <td className="overflow-hidden truncate px-4 py-3" style={{ color: "var(--text-secondary)" }}>
                             {humanize(row.objective)}
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3" style={{ color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
+                          <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
                             {number(row.result)}
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+                          <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
                             {currency(costPerRowResult)}
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+                          <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
                             {row.daily_budget ? currency(Number(row.daily_budget)) : "-"}
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+                          <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
                             {currency(row.today_spend)}
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+                          <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
                             {Number(row.ctr ?? 0).toFixed(2)}%
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+                          <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
                             {Number(row.frequency ?? 0).toFixed(2)}
                           </td>
-                          <td className="whitespace-nowrap px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+                          <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
                             {number(Number(row.unique_clicks ?? 0))}
                           </td>
                         </tr>
                       );
                     })}
-                    {insights.length === 0 && (
+                    {filteredInsights.length === 0 && (
                       <tr>
-                        <td colSpan={10} className="px-4 py-6 text-center" style={{ color: "var(--text-muted)" }}>
+                        <td colSpan={COLUMNS.length} className="px-4 py-6 text-center" style={{ color: "var(--text-muted)" }}>
                           No hay datos disponibles
                         </td>
                       </tr>

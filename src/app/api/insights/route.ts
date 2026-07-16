@@ -6,12 +6,17 @@ import {
 } from "@/lib/metaAds";
 
 export async function GET(request: NextRequest) {
-  const datePreset = request.nextUrl.searchParams.get("date_preset") ?? "last_30d";
+  const params = request.nextUrl.searchParams;
+  const since = params.get("since");
+  const until = params.get("until");
+  const datePreset = params.get("date_preset") ?? "last_30d";
+  const timeRange = since && until ? { since, until } : undefined;
+  const isToday = !timeRange && datePreset === "today";
 
   try {
     const [insights, todayInsights, campaigns] = await Promise.all([
-      fetchAllAccountsInsights({ datePreset }),
-      datePreset === "today"
+      fetchAllAccountsInsights(timeRange ? { timeRange } : { datePreset }),
+      isToday
         ? Promise.resolve<Awaited<ReturnType<typeof fetchAllAccountsInsights>>>([])
         : fetchAllAccountsInsights({ datePreset: "today" }),
       fetchAllAccountsCampaigns(),
@@ -19,10 +24,7 @@ export async function GET(request: NextRequest) {
 
     const campaignById = new Map(campaigns.map((c) => [c.id, c]));
     const todaySpendByCampaign = new Map(
-      (datePreset === "today" ? insights : todayInsights).map((i) => [
-        i.campaign_id,
-        Number(i.spend ?? 0),
-      ])
+      (isToday ? insights : todayInsights).map((i) => [i.campaign_id, Number(i.spend ?? 0)])
     );
 
     const data = insights.map((row) => {

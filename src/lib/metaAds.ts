@@ -80,15 +80,24 @@ const DEFAULT_FIELDS = [
   "cost_per_action_type",
 ].join(",");
 
+export interface TimeRange {
+  since: string;
+  until: string;
+}
+
 export async function fetchAccountInsights(
   adAccountId: string,
-  options: { datePreset?: string; level?: string } = {}
+  options: { datePreset?: string; timeRange?: TimeRange; level?: string } = {}
 ): Promise<AdInsight[]> {
-  const { datePreset = "last_30d", level = "campaign" } = options;
+  const { datePreset, timeRange, level = "campaign" } = options;
   const url = new URL(`${META_BASE_URL}/${adAccountId}/insights`);
   url.searchParams.set("access_token", getAccessToken());
   url.searchParams.set("fields", DEFAULT_FIELDS);
-  url.searchParams.set("date_preset", datePreset);
+  if (timeRange) {
+    url.searchParams.set("time_range", JSON.stringify(timeRange));
+  } else {
+    url.searchParams.set("date_preset", datePreset ?? "last_30d");
+  }
   url.searchParams.set("level", level);
   url.searchParams.set("limit", "500");
 
@@ -111,7 +120,7 @@ export async function fetchAccountInsights(
 }
 
 export async function fetchAllAccountsInsights(
-  options: { datePreset?: string; level?: string } = {}
+  options: { datePreset?: string; timeRange?: TimeRange; level?: string } = {}
 ): Promise<AdInsight[]> {
   const accountIds = getAdAccountIds();
   const results = await Promise.all(
