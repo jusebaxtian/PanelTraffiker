@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Agent, Office } from "@/lib/distribucion";
 import { agentValue, officeTotal, JUNIOR_VALUE, EJECUTIVO_DEFAULT_VALUE } from "@/lib/distribucion";
 
@@ -118,6 +118,17 @@ export default function DistribucionPage() {
     );
   }
 
+  const summary = useMemo(() => {
+    const allAgents = offices.flatMap((o) => o.agents);
+    return {
+      totalOffices: offices.length,
+      totalEjecutivos: allAgents.filter((a) => a.type === "ejecutivo").length,
+      totalJunior: allAgents.filter((a) => a.type === "junior").length,
+      totalAgentes: allAgents.length,
+      totalValue: offices.reduce((sum, o) => sum + officeTotal(o), 0),
+    };
+  }, [offices]);
+
   return (
     <div className="min-h-screen" style={{ background: "var(--page)" }}>
       <header
@@ -133,6 +144,16 @@ export default function DistribucionPage() {
       </header>
 
       <main className="mx-auto max-w-[1600px] px-8 py-8">
+        {!loading && !error && (
+          <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            <StatTile label="Total de oficinas" value={String(summary.totalOffices)} />
+            <StatTile label="Total de ejecutivos" value={String(summary.totalEjecutivos)} accent="var(--brand)" />
+            <StatTile label="Total de junior" value={String(summary.totalJunior)} />
+            <StatTile label="Total de agentes" value={String(summary.totalAgentes)} />
+            <StatTile label="Valor total" value={currency(summary.totalValue)} accent="var(--good)" />
+          </div>
+        )}
+
         <div className="mb-8 flex flex-wrap items-center gap-2">
           <input
             type="text"
@@ -497,5 +518,21 @@ function AgentEditRow({
         </div>
       </td>
     </tr>
+  );
+}
+
+function StatTile({ label, value, accent }: { label: string; value: string; accent?: string }) {
+  return (
+    <div className="rounded-lg p-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+      <p className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
+        {label}
+      </p>
+      <p
+        className="mt-1 text-2xl font-semibold"
+        style={{ color: accent ?? "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}
+      >
+        {value}
+      </p>
+    </div>
   );
 }
