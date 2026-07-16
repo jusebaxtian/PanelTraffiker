@@ -178,7 +178,7 @@ export default function Home() {
   return (
     <div className="min-h-screen" style={{ background: "var(--page)" }}>
       <header
-        className="sticky top-0 z-10 flex items-center justify-between px-8 py-4"
+        className="sticky top-0 z-10 flex items-center justify-between px-4 py-4 sm:px-8"
         style={{ background: "var(--page)", borderBottom: "1px solid var(--border)" }}
       >
         <span className="text-lg font-semibold tracking-tight" style={{ color: "var(--text-primary)" }}>
@@ -189,7 +189,7 @@ export default function Home() {
         </span>
       </header>
 
-      <main className="mx-auto max-w-7xl px-8 py-8">
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-8 sm:py-8">
         <div className="mb-4 flex flex-wrap items-center gap-2">
           {DATE_PRESETS.map((preset) => {
             const active = !customRange && preset.value === datePreset;
@@ -286,8 +286,11 @@ export default function Home() {
               className="overflow-hidden rounded-lg"
               style={{ border: "1px solid var(--border)", background: "var(--surface)" }}
             >
-              <div>
-                <table className="w-full text-left text-sm" style={{ tableLayout: "fixed" }}>
+              <div className="overflow-x-auto">
+                <table
+                  className="w-full text-left text-sm"
+                  style={{ tableLayout: "fixed", minWidth: 760 }}
+                >
                   <colgroup>
                     {COLUMNS.map((col) => (
                       <col key={col.key} style={{ width: widths[col.key] }} />

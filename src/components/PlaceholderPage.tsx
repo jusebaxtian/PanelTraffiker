@@ -2,7 +2,7 @@ export default function PlaceholderPage({ title }: { title: string }) {
   return (
     <div className="min-h-screen" style={{ background: "var(--page)" }}>
       <header
-        className="sticky top-0 z-10 flex items-center justify-between px-8 py-4"
+        className="sticky top-0 z-10 flex items-center justify-between px-4 py-4 sm:px-8"
         style={{ background: "var(--page)", borderBottom: "1px solid var(--border)" }}
       >
         <span className="text-lg font-semibold tracking-tight" style={{ color: "var(--text-primary)" }}>
@@ -13,7 +13,7 @@ export default function PlaceholderPage({ title }: { title: string }) {
         </span>
       </header>
 
-      <main className="mx-auto flex max-w-7xl items-center justify-center px-8 py-24">
+      <main className="mx-auto flex max-w-7xl items-center justify-center px-4 py-16 sm:px-8 sm:py-24">
         <div
           className="rounded-lg px-8 py-12 text-center"
           style={{ background: "var(--surface)", border: "1px solid var(--border)" }}

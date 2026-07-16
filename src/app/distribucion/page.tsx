@@ -132,7 +132,7 @@ export default function DistribucionPage() {
   return (
     <div className="min-h-screen" style={{ background: "var(--page)" }}>
       <header
-        className="sticky top-0 z-10 flex items-center justify-between px-8 py-4"
+        className="sticky top-0 z-10 flex items-center justify-between px-4 py-4 sm:px-8"
         style={{ background: "var(--page)", borderBottom: "1px solid var(--border)" }}
       >
         <span className="text-lg font-semibold tracking-tight" style={{ color: "var(--text-primary)" }}>
@@ -143,7 +143,7 @@ export default function DistribucionPage() {
         </span>
       </header>
 
-      <main className="mx-auto max-w-[1600px] px-8 py-8">
+      <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-8 sm:py-8">
         {!loading && !error && (
           <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
             <StatTile label="Total de oficinas" value={String(summary.totalOffices)} />
@@ -161,7 +161,7 @@ export default function DistribucionPage() {
             value={newOfficeName}
             onChange={(e) => setNewOfficeName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && createOffice()}
-            className="w-72 rounded-lg px-3 py-2 text-sm outline-none"
+            className="w-full max-w-full flex-1 rounded-lg px-3 py-2 text-sm outline-none sm:max-w-72 sm:flex-none"
             style={{ background: "var(--surface)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
           />
           <button

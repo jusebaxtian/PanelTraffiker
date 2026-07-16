@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Sidebar from "@/components/Sidebar";
 import "./globals.css";
@@ -18,6 +18,11 @@ export const metadata: Metadata = {
   description: "Dashboard de métricas de Meta Ads",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -29,9 +34,9 @@ export default function RootLayout({
       data-theme="dark"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex">
+      <body className="flex min-h-full flex-col md:flex-row">
         <Sidebar />
-        <div className="min-h-full min-w-0 flex-1">{children}</div>
+        <div className="min-h-full min-w-0 flex-1 pt-14 md:pt-0">{children}</div>
       </body>
     </html>
   );
