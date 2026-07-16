@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import type { AdInsight } from "@/lib/metaAds";
 import { conversationsStarted } from "@/lib/metaAds";
 import CostPerLeadChart, { type CostPerLeadDatum } from "@/components/CostPerLeadChart";
+import AgentTypePieChart from "@/components/AgentTypePieChart";
+import type { Office } from "@/lib/distribucion";
 
 interface EnrichedInsight extends AdInsight {
   result: number;
@@ -39,6 +41,16 @@ export default function GraficosPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
   const [threshold, setThreshold] = useState(6000);
+  const [offices, setOffices] = useState<Office[]>([]);
+
+  useEffect(() => {
+    fetch("/api/offices")
+      .then((res) => res.json())
+      .then((json) => {
+        if (!json.error) setOffices(json.data);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -86,6 +98,14 @@ export default function GraficosPage() {
       })),
     [filteredInsights]
   );
+
+  const agentTypeData = useMemo(() => {
+    const allAgents = offices.flatMap((o) => o.agents);
+    return {
+      ejecutivos: allAgents.filter((a) => a.type === "ejecutivo").length,
+      junior: allAgents.filter((a) => a.type === "junior").length,
+    };
+  }, [offices]);
 
   return (
     <div className="min-h-screen" style={{ background: "var(--page)" }}>
@@ -216,7 +236,16 @@ export default function GraficosPage() {
           </p>
         )}
 
-        {!loading && !error && <CostPerLeadChart data={chartData} threshold={threshold} />}
+        {!loading && !error && (
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
+            <div className="xl:flex-[2]">
+              <CostPerLeadChart data={chartData} threshold={threshold} />
+            </div>
+            <div className="flex xl:flex-1">
+              <AgentTypePieChart data={agentTypeData} />
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
