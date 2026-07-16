@@ -125,6 +125,7 @@ export default function Home() {
   const [datePreset, setDatePreset] = useState<string>("last_7d");
   const [customRange, setCustomRange] = useState<{ since: string; until: string } | null>(null);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ACTIVE");
   const { widths, startResize } = useColumnWidths();
 
   useEffect(() => {
@@ -146,11 +147,22 @@ export default function Home() {
       .finally(() => setLoading(false));
   }, [datePreset, customRange]);
 
+  const statusOptions = useMemo(() => {
+    const present = new Set(insights.map((i) => i.status).filter(Boolean) as string[]);
+    return Array.from(present).sort();
+  }, [insights]);
+
   const filteredInsights = useMemo(() => {
-    if (!search.trim()) return insights;
-    const q = search.trim().toLowerCase();
-    return insights.filter((i) => i.campaign_name?.toLowerCase().includes(q));
-  }, [insights, search]);
+    let rows = insights;
+    if (statusFilter !== "ALL") {
+      rows = rows.filter((i) => i.status === statusFilter);
+    }
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      rows = rows.filter((i) => i.campaign_name?.toLowerCase().includes(q));
+    }
+    return rows;
+  }, [insights, search, statusFilter]);
 
   const totals = useMemo(
     () =>
@@ -243,7 +255,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="mb-6">
+        <div className="mb-6 flex flex-wrap gap-2">
           <input
             type="text"
             placeholder="Buscar campaña..."
@@ -256,6 +268,23 @@ export default function Home() {
               border: "1px solid var(--border)",
             }}
           />
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded-lg px-3 py-2 text-sm outline-none"
+            style={{
+              background: "var(--surface)",
+              color: "var(--text-primary)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            <option value="ALL">Todos los estados</option>
+            {Array.from(new Set(["ACTIVE", ...statusOptions])).map((s) => (
+              <option key={s} value={s}>
+                {humanize(s)}
+              </option>
+            ))}
+          </select>
         </div>
 
         {loading && (
