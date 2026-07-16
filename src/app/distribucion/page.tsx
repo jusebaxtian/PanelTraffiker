@@ -219,6 +219,8 @@ function OfficeCard({
 
   const total = officeTotal(office);
   const falta = total - office.admin_amount;
+  const ejecutivoCount = office.agents.filter((a) => a.type === "ejecutivo").length;
+  const juniorCount = office.agents.filter((a) => a.type === "junior").length;
 
   function submitAgent() {
     if (!name.trim()) return;
@@ -235,17 +237,29 @@ function OfficeCard({
 
   return (
     <div className="overflow-hidden rounded-lg" style={{ border: "1px solid var(--border)", background: "var(--surface)" }}>
-      <div className="flex items-center justify-between px-4 py-3" style={{ background: "var(--good)" }}>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-3" style={{ background: "var(--good)" }}>
         <span className="font-semibold" style={{ color: "#08210a" }}>
           {office.name}
         </span>
-        <button
-          onClick={handleDeleteClick}
-          className="rounded px-2 py-1 text-xs font-medium"
-          style={{ color: "#08210a" }}
-        >
-          Eliminar oficina
-        </button>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="whitespace-nowrap text-xs font-medium" style={{ color: "#08210a" }}>
+            Ejecutivos: {ejecutivoCount}
+          </span>
+          <span className="whitespace-nowrap text-xs font-medium" style={{ color: "#08210a" }}>
+            Junior: {juniorCount}
+          </span>
+          <span className="whitespace-nowrap text-xs font-medium" style={{ color: "#08210a" }}>
+            Total agentes: {office.agents.length}
+          </span>
+          <button
+            onClick={handleDeleteClick}
+            className="text-sm"
+            style={{ color: "#08210a" }}
+            title="Eliminar oficina"
+          >
+            🗑
+          </button>
+        </div>
       </div>
 
       <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
