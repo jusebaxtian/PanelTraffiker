@@ -6,6 +6,15 @@ import { conversationsStarted } from "@/lib/metaAds";
 import CostPerLeadChart, { type CostPerLeadDatum } from "@/components/CostPerLeadChart";
 import AgentTypePieChart from "@/components/AgentTypePieChart";
 import type { Office } from "@/lib/distribucion";
+import { fmtDate, getCurrentRange, getPreviousRange } from "@/lib/dateRanges";
+
+function currency(n: number) {
+  return n.toLocaleString("es-CO", {
+    style: "currency",
+    currency: "COP",
+    maximumFractionDigits: 0,
+  });
+}
 
 interface EnrichedInsight extends AdInsight {
   result: number;
@@ -42,6 +51,8 @@ export default function GraficosPage() {
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
   const [threshold, setThreshold] = useState(6000);
   const [offices, setOffices] = useState<Office[]>([]);
+  const [previousSpend, setPreviousSpend] = useState<number | null>(null);
+  const [previousLoading, setPreviousLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/offices")
@@ -70,6 +81,39 @@ export default function GraficosPage() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [datePreset, customRange]);
+
+  const currentRange = useMemo(
+    () => getCurrentRange(datePreset, customRange, new Date()),
+    [datePreset, customRange]
+  );
+  const previousRange = useMemo(
+    () => getPreviousRange(datePreset, customRange, currentRange),
+    [datePreset, customRange, currentRange]
+  );
+
+  useEffect(() => {
+    setPreviousLoading(true);
+    const since = fmtDate(previousRange.since);
+    const until = fmtDate(previousRange.until);
+    fetch(`/api/insights?since=${since}&until=${until}`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (!json.error) {
+          const total = (json.data as EnrichedInsight[]).reduce(
+            (sum, i) => sum + Number(i.spend ?? 0),
+            0
+          );
+          setPreviousSpend(total);
+        }
+      })
+      .catch(() => setPreviousSpend(null))
+      .finally(() => setPreviousLoading(false));
+  }, [previousRange]);
+
+  const currentSpend = useMemo(
+    () => insights.reduce((sum, i) => sum + Number(i.spend ?? 0), 0),
+    [insights]
+  );
 
   const statusOptions = useMemo(() => {
     const present = new Set(insights.map((i) => i.status).filter(Boolean) as string[]);
@@ -237,6 +281,19 @@ export default function GraficosPage() {
         )}
 
         {!loading && !error && (
+          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <SpendTile label="Gasto período actual" period={currentRange.label} value={currentSpend} accent="var(--brand)" />
+            <SpendTile
+              label="Gasto mismo período (mes anterior)"
+              period={previousRange.label}
+              value={previousSpend}
+              loading={previousLoading}
+              compareTo={currentSpend}
+            />
+          </div>
+        )}
+
+        {!loading && !error && (
           <div className="flex flex-col gap-6 xl:flex-row xl:items-start">
             <div className="xl:flex-[2]">
               <CostPerLeadChart data={chartData} threshold={threshold} />
@@ -247,6 +304,52 @@ export default function GraficosPage() {
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+function SpendTile({
+  label,
+  period,
+  value,
+  loading,
+  accent,
+  compareTo,
+}: {
+  label: string;
+  period: string;
+  value: number | null;
+  loading?: boolean;
+  accent?: string;
+  compareTo?: number;
+}) {
+  const delta =
+    compareTo !== undefined && value !== null && value > 0 ? ((compareTo - value) / value) * 100 : null;
+
+  return (
+    <div className="rounded-lg p-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
+          {label}
+        </p>
+        <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+          {period}
+        </span>
+      </div>
+      <p
+        className="mt-1 text-2xl font-semibold"
+        style={{ color: accent ?? "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}
+      >
+        {loading ? "…" : value !== null ? currency(value) : "-"}
+      </p>
+      {delta !== null && (
+        <p
+          className="mt-1 text-xs font-medium"
+          style={{ color: delta > 0 ? "var(--critical)" : delta < 0 ? "var(--good)" : "var(--text-muted)" }}
+        >
+          {delta > 0 ? "▲" : delta < 0 ? "▼" : "–"} {Math.abs(delta).toFixed(1)}% vs. este período
+        </p>
+      )}
     </div>
   );
 }
