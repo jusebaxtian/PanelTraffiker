@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { AdInsight } from "@/lib/metaAds";
+import { conversationsStarted } from "@/lib/metaAds";
+import CostPerLeadChart, { type CostPerLeadDatum } from "@/components/CostPerLeadChart";
 
 interface EnrichedInsight extends AdInsight {
   result: number;
@@ -72,6 +74,17 @@ export default function GraficosPage() {
     }
     return rows;
   }, [insights, search, statusFilter]);
+
+  const chartData = useMemo<CostPerLeadDatum[]>(
+    () =>
+      filteredInsights.map((i) => ({
+        campaign: i.campaign_name ?? "-",
+        account: i.account_id?.replace("act_", "") ?? "",
+        spend: Number(i.spend ?? 0),
+        leads: conversationsStarted(i),
+      })),
+    [filteredInsights]
+  );
 
   return (
     <div className="min-h-screen" style={{ background: "var(--page)" }}>
@@ -184,21 +197,7 @@ export default function GraficosPage() {
           </p>
         )}
 
-        {!loading && !error && (
-          <div
-            className="flex min-h-64 items-center justify-center rounded-lg p-8 text-center"
-            style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
-          >
-            <div>
-              <p className="text-lg font-medium" style={{ color: "var(--text-primary)" }}>
-                {filteredInsights.length} campañas seleccionadas
-              </p>
-              <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
-                Los filtros están listos. Indicá qué gráfico querés y lo construyo acá.
-              </p>
-            </div>
-          </div>
-        )}
+        {!loading && !error && <CostPerLeadChart data={chartData} />}
       </main>
     </div>
   );
