@@ -180,6 +180,11 @@ function OfficeCard({
   const [type, setType] = useState<"junior" | "ejecutivo">("junior");
   const [customValue, setCustomValue] = useState("");
   const [adminInput, setAdminInput] = useState(String(office.admin_amount));
+  function handleDeleteClick() {
+    if (window.confirm(`¿Seguro que querés eliminar la oficina "${office.name}"? Esta acción no se puede deshacer.`)) {
+      onDelete();
+    }
+  }
 
   const total = officeTotal(office);
   const falta = office.admin_amount - total;
@@ -203,7 +208,11 @@ function OfficeCard({
         <span className="font-semibold" style={{ color: "#08210a" }}>
           {office.name}
         </span>
-        <button onClick={onDelete} className="text-xs font-medium" style={{ color: "#08210a" }}>
+        <button
+          onClick={handleDeleteClick}
+          className="rounded px-2 py-1 text-xs font-medium"
+          style={{ color: "#08210a" }}
+        >
           Eliminar oficina
         </button>
       </div>
