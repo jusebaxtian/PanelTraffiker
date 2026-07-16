@@ -218,7 +218,7 @@ function OfficeCard({
   }
 
   const total = officeTotal(office);
-  const falta = office.admin_amount - total;
+  const falta = total - office.admin_amount;
 
   function submitAgent() {
     if (!name.trim()) return;
@@ -404,7 +404,7 @@ function OfficeCard({
           </span>
           <span
             className="text-sm font-medium"
-            style={{ color: falta === 0 ? "var(--text-secondary)" : falta > 0 ? "var(--good)" : "var(--critical)", fontVariantNumeric: "tabular-nums" }}
+            style={{ color: falta === 0 ? "var(--text-secondary)" : falta > 0 ? "var(--critical)" : "var(--good)", fontVariantNumeric: "tabular-nums" }}
           >
             {currency(falta)}
           </span>
