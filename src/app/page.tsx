@@ -61,6 +61,7 @@ const COLUMNS = [
   { key: "objective", label: "Objetivo", defaultWidth: 150 },
   { key: "result", label: "Resultado", defaultWidth: 110 },
   { key: "costPerResult", label: "Costo/resultado", defaultWidth: 140 },
+  { key: "spend", label: "Gasto", defaultWidth: 120 },
   { key: "dailyBudget", label: "Gasto diario", defaultWidth: 120 },
   { key: "todaySpend", label: "Gasto hoy", defaultWidth: 120 },
   { key: "ctr", label: "CTR", defaultWidth: 90 },
@@ -318,7 +319,7 @@ export default function Home() {
               <div className="overflow-x-auto">
                 <table
                   className="w-full text-left text-sm"
-                  style={{ tableLayout: "fixed", minWidth: 760 }}
+                  style={{ tableLayout: "fixed", minWidth: 880 }}
                 >
                   <colgroup>
                     {COLUMNS.map((col) => (
@@ -389,6 +390,9 @@ export default function Home() {
                           </td>
                           <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
                             {currency(costPerRowResult)}
+                          </td>
+                          <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
+                            {currency(Number(row.spend ?? 0))}
                           </td>
                           <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
                             {row.daily_budget ? currency(Number(row.daily_budget)) : "-"}

@@ -45,17 +45,23 @@ export interface Campaign {
   daily_budget?: string;
 }
 
+// Orden de prioridad: se usa el PRIMER tipo de acción disponible, nunca se
+// suman los que se solapan. El "resultado" de Meta para campañas de mensajes
+// es messaging_conversation_started_7d; total_messaging_connection es una
+// métrica más amplia que, sumada, duplicaría el conteo de leads.
 const CONVERSATION_ACTION_TYPES = [
   "onsite_conversion.messaging_conversation_started_7d",
-  "onsite_conversion.total_messaging_connection",
   "messaging_conversation_started_7d",
+  "onsite_conversion.total_messaging_connection",
 ];
 
 export function conversationsStarted(insight: AdInsight): number {
   if (!insight.actions) return 0;
-  return insight.actions
-    .filter((a) => CONVERSATION_ACTION_TYPES.includes(a.action_type))
-    .reduce((sum, a) => sum + Number(a.value ?? 0), 0);
+  for (const type of CONVERSATION_ACTION_TYPES) {
+    const action = insight.actions.find((a) => a.action_type === type);
+    if (action) return Number(action.value ?? 0);
+  }
+  return 0;
 }
 
 interface MetaInsightsResponse {
