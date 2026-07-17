@@ -5,7 +5,8 @@ import type { AdInsight } from "@/lib/metaAds";
 import { conversationsStarted } from "@/lib/metaAds";
 import CostPerLeadChart, { type CostPerLeadDatum } from "@/components/CostPerLeadChart";
 import AgentTypePieChart from "@/components/AgentTypePieChart";
-import type { Office } from "@/lib/distribucion";
+import OfficeBudgetPieChart from "@/components/OfficeBudgetPieChart";
+import { officeTotal, type Office } from "@/lib/distribucion";
 import { fmtDate, getCurrentRange, getPreviousRange } from "@/lib/dateRanges";
 
 function currency(n: number) {
@@ -150,6 +151,11 @@ export default function GraficosPage() {
       junior: allAgents.filter((a) => a.type === "junior").length,
     };
   }, [offices]);
+
+  const officeBudgetData = useMemo(
+    () => offices.map((o) => ({ office: o.name, total: officeTotal(o) })),
+    [offices]
+  );
 
   return (
     <div className="min-h-screen" style={{ background: "var(--page)" }}>
@@ -298,8 +304,9 @@ export default function GraficosPage() {
             <div className="xl:flex-[2]">
               <CostPerLeadChart data={chartData} threshold={threshold} />
             </div>
-            <div className="flex xl:flex-1">
+            <div className="flex flex-col gap-6 xl:flex-1">
               <AgentTypePieChart data={agentTypeData} />
+              <OfficeBudgetPieChart data={officeBudgetData} />
             </div>
           </div>
         )}

@@ -79,26 +79,10 @@ export default function CostPerLeadChart({
       className="rounded-lg p-4"
       style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
     >
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+      <div className="mb-4">
         <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
           Costo por lead por campaña
         </h2>
-        <div className="flex items-center gap-4 text-xs" style={{ color: "var(--text-secondary)" }}>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: "var(--good)" }} />
-            Dentro del tope
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: "var(--critical)" }} />
-            Supera el tope
-          </span>
-          <span className="flex items-center gap-1.5">
-            <svg width="20" height="8">
-              <line x1="0" y1="4" x2="20" y2="4" stroke="var(--series-3)" strokeWidth="2" strokeDasharray="4 3" />
-            </svg>
-            Tope {currency(THRESHOLD)}
-          </span>
-        </div>
       </div>
 
       <div className="overflow-x-auto">
@@ -198,17 +182,6 @@ export default function CostPerLeadChart({
             strokeWidth="2"
             strokeDasharray="6 4"
           />
-          <text
-            x={width - marginRight}
-            y={thresholdY - 6}
-            textAnchor="end"
-            fontSize="11"
-            fontWeight="600"
-            fill="var(--series-3)"
-            style={{ fontVariantNumeric: "tabular-nums" }}
-          >
-            Tope {currency(THRESHOLD)}
-          </text>
         </svg>
       </div>
     </div>
