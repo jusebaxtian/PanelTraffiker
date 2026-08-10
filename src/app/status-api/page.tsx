@@ -6,8 +6,10 @@ interface ApiConnection {
   id: string;
   label: string;
   phone_number_id: string;
+  waba_id: string | null;
   display_phone_number: string | null;
   verified_name: string | null;
+  business_name: string | null;
   quality_rating: "GREEN" | "YELLOW" | "RED" | "UNKNOWN" | null;
   error: string | null;
 }
@@ -35,10 +37,12 @@ export default function StatusApiPage() {
   const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState("");
   const [phoneNumberId, setPhoneNumberId] = useState("");
+  const [wabaId, setWabaId] = useState("");
   const [accessToken, setAccessToken] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const [editPhoneId, setEditPhoneId] = useState("");
+  const [editWabaId, setEditWabaId] = useState("");
   const [editToken, setEditToken] = useState("");
 
   function load(silent = false) {
@@ -70,6 +74,7 @@ export default function StatusApiPage() {
       body: JSON.stringify({
         label: label.trim(),
         phone_number_id: phoneNumberId.trim(),
+        waba_id: wabaId.trim() || undefined,
         access_token: accessToken.trim(),
       }),
     });
@@ -81,6 +86,7 @@ export default function StatusApiPage() {
     setConnections((prev) => [...prev, json.data]);
     setLabel("");
     setPhoneNumberId("");
+    setWabaId("");
     setAccessToken("");
     setAdding(false);
   }
@@ -95,11 +101,16 @@ export default function StatusApiPage() {
     setEditingId(c.id);
     setEditLabel(c.label);
     setEditPhoneId(c.phone_number_id);
+    setEditWabaId(c.waba_id ?? "");
     setEditToken("");
   }
 
   async function saveEdit(id: string) {
-    const payload: Record<string, string> = { label: editLabel.trim(), phone_number_id: editPhoneId.trim() };
+    const payload: Record<string, string> = {
+      label: editLabel.trim(),
+      phone_number_id: editPhoneId.trim(),
+      waba_id: editWabaId.trim(),
+    };
     if (editToken.trim()) payload.access_token = editToken.trim();
 
     const res = await fetch(`/api/api-status/${id}`, {
@@ -130,7 +141,7 @@ export default function StatusApiPage() {
         </span>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-8 sm:py-8">
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-8 sm:py-8">
         <div className="mb-6 flex flex-wrap items-center gap-2">
           {!adding ? (
             <button
@@ -162,6 +173,14 @@ export default function StatusApiPage() {
                 style={{ background: "var(--page)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
               />
               <input
+                type="text"
+                placeholder="WABA ID (opcional, para ver portafolio)"
+                value={wabaId}
+                onChange={(e) => setWabaId(e.target.value)}
+                className="min-w-40 flex-1 rounded-md px-3 py-2 text-sm outline-none"
+                style={{ background: "var(--page)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+              />
+              <input
                 type="password"
                 placeholder="Access Token"
                 value={accessToken}
@@ -181,6 +200,7 @@ export default function StatusApiPage() {
                   setAdding(false);
                   setLabel("");
                   setPhoneNumberId("");
+                  setWabaId("");
                   setAccessToken("");
                 }}
                 className="text-sm"
@@ -218,10 +238,10 @@ export default function StatusApiPage() {
             style={{ border: "1px solid var(--border)", background: "var(--surface)" }}
           >
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm" style={{ minWidth: 640 }}>
+              <table className="w-full text-left text-sm" style={{ minWidth: 760 }}>
                 <thead>
                   <tr style={{ borderBottom: "1px solid var(--gridline)" }}>
-                    {["Número de API", "Nombre", "Calidad", ""].map((h) => (
+                    {["Número de API", "Nombre", "Portafolio", "Calidad", ""].map((h) => (
                       <th
                         key={h}
                         className="px-4 py-3 text-xs font-medium uppercase tracking-wide"
@@ -238,7 +258,7 @@ export default function StatusApiPage() {
                     const isEditing = editingId === c.id;
                     return isEditing ? (
                       <tr key={c.id} style={{ borderTop: idx === 0 ? "none" : "1px solid var(--gridline)" }}>
-                        <td colSpan={4} className="px-4 py-3">
+                        <td colSpan={5} className="px-4 py-3">
                           <div className="flex flex-wrap items-center gap-2">
                             <input
                               type="text"
@@ -253,6 +273,14 @@ export default function StatusApiPage() {
                               value={editLabel}
                               onChange={(e) => setEditLabel(e.target.value)}
                               placeholder="Nombre"
+                              className="min-w-40 flex-1 rounded-md px-2 py-1.5 text-sm outline-none"
+                              style={{ background: "var(--page)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+                            />
+                            <input
+                              type="text"
+                              value={editWabaId}
+                              onChange={(e) => setEditWabaId(e.target.value)}
+                              placeholder="WABA ID"
                               className="min-w-40 flex-1 rounded-md px-2 py-1.5 text-sm outline-none"
                               style={{ background: "var(--page)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
                             />
@@ -294,6 +322,9 @@ export default function StatusApiPage() {
                             </div>
                           )}
                         </td>
+                        <td className="px-4 py-3" style={{ color: "var(--text-secondary)" }}>
+                          {c.business_name ?? "-"}
+                        </td>
                         <td className="px-4 py-3">
                           <span
                             className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium"
@@ -329,7 +360,7 @@ export default function StatusApiPage() {
                   })}
                   {connections.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="px-4 py-6 text-center" style={{ color: "var(--text-muted)" }}>
+                      <td colSpan={5} className="px-4 py-6 text-center" style={{ color: "var(--text-muted)" }}>
                         No hay cuentas vinculadas todavía.
                       </td>
                     </tr>

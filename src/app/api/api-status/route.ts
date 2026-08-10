@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { fetchPhoneNumberStatus } from "@/lib/whatsapp";
+import { buildConnectionStatus } from "@/lib/whatsapp";
 
 export async function GET() {
   const supabase = supabaseServer();
@@ -13,20 +13,7 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const data = await Promise.all(
-    connections.map(async (conn) => {
-      const result = await fetchPhoneNumberStatus(conn.phone_number_id, conn.access_token);
-      return {
-        id: conn.id,
-        label: conn.label,
-        phone_number_id: conn.phone_number_id,
-        display_phone_number: result.data?.display_phone_number ?? null,
-        verified_name: result.data?.verified_name ?? null,
-        quality_rating: result.ok ? result.data?.quality_rating ?? "UNKNOWN" : null,
-        error: result.ok ? null : result.error,
-      };
-    })
-  );
+  const data = await Promise.all(connections.map(buildConnectionStatus));
 
   return NextResponse.json({ data });
 }
@@ -38,6 +25,7 @@ export async function POST(request: NextRequest) {
   const label = String(body.label ?? "").trim();
   const phoneNumberId = String(body.phone_number_id ?? "").trim();
   const accessToken = String(body.access_token ?? "").trim();
+  const wabaId = String(body.waba_id ?? "").trim() || null;
 
   if (!label || !phoneNumberId || !accessToken) {
     return NextResponse.json(
@@ -60,6 +48,7 @@ export async function POST(request: NextRequest) {
       label,
       phone_number_id: phoneNumberId,
       access_token: accessToken,
+      waba_id: wabaId,
       position: nextPosition,
     })
     .select()
@@ -69,17 +58,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const result = await fetchPhoneNumberStatus(phoneNumberId, accessToken);
-
-  return NextResponse.json({
-    data: {
-      id: data.id,
-      label: data.label,
-      phone_number_id: data.phone_number_id,
-      display_phone_number: result.data?.display_phone_number ?? null,
-      verified_name: result.data?.verified_name ?? null,
-      quality_rating: result.ok ? result.data?.quality_rating ?? "UNKNOWN" : null,
-      error: result.ok ? null : result.error,
-    },
-  });
+  return NextResponse.json({ data: await buildConnectionStatus(data) });
 }
