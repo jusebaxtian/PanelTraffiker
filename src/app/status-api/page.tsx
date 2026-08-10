@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 
 interface ApiConnection {
   id: string;
@@ -44,6 +44,10 @@ export default function StatusApiPage() {
   const [editPhoneId, setEditPhoneId] = useState("");
   const [editWabaId, setEditWabaId] = useState("");
   const [editToken, setEditToken] = useState("");
+
+  const [search, setSearch] = useState("");
+  const [qualityFilter, setQualityFilter] = useState("ALL");
+  const [groupByPortfolio, setGroupByPortfolio] = useState(false);
 
   function load(silent = false) {
     if (!silent) setLoading(true);
@@ -96,6 +100,42 @@ export default function StatusApiPage() {
     setConnections((prev) => prev.filter((c) => c.id !== id));
     await fetch(`/api/api-status/${id}`, { method: "DELETE" });
   }
+
+  const qualityOptions = useMemo(() => {
+    const present = new Set(connections.map((c) => c.quality_rating ?? "UNKNOWN"));
+    return Array.from(present);
+  }, [connections]);
+
+  const filteredConnections = useMemo(() => {
+    let rows = connections;
+    if (qualityFilter !== "ALL") {
+      rows = rows.filter((c) => (c.quality_rating ?? "UNKNOWN") === qualityFilter);
+    }
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      rows = rows.filter(
+        (c) =>
+          c.label.toLowerCase().includes(q) ||
+          (c.verified_name ?? "").toLowerCase().includes(q) ||
+          (c.display_phone_number ?? "").toLowerCase().includes(q) ||
+          c.phone_number_id.includes(q)
+      );
+    }
+    return rows;
+  }, [connections, search, qualityFilter]);
+
+  const groups = useMemo(() => {
+    if (!groupByPortfolio) return [{ portfolio: null as string | null, rows: filteredConnections }];
+    const map = new Map<string, ApiConnection[]>();
+    for (const c of filteredConnections) {
+      const key = c.business_name ?? "Sin portafolio";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(c);
+    }
+    return Array.from(map.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([portfolio, rows]) => ({ portfolio, rows }));
+  }, [filteredConnections, groupByPortfolio]);
 
   function startEdit(c: ApiConnection) {
     setEditingId(c.id);
@@ -221,6 +261,41 @@ export default function StatusApiPage() {
           </button>
         </div>
 
+        <div className="mb-6 flex flex-wrap items-center gap-2">
+          <input
+            type="text"
+            placeholder="Buscar por nombre o número..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full max-w-xs flex-1 rounded-lg px-3 py-2 text-sm outline-none sm:w-64 sm:flex-none"
+            style={{ background: "var(--surface)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+          />
+          <select
+            value={qualityFilter}
+            onChange={(e) => setQualityFilter(e.target.value)}
+            className="rounded-lg px-3 py-2 text-sm outline-none"
+            style={{ background: "var(--surface)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+          >
+            <option value="ALL">Todas las calidades</option>
+            {qualityOptions.map((q) => (
+              <option key={q} value={q}>
+                {qualityMeta(q as ApiConnection["quality_rating"], null).label}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => setGroupByPortfolio((v) => !v)}
+            className="rounded-lg px-4 py-2 text-sm font-medium"
+            style={{
+              background: groupByPortfolio ? "var(--brand)" : "var(--surface)",
+              color: groupByPortfolio ? "#ffffff" : "var(--text-secondary)",
+              border: `1px solid ${groupByPortfolio ? "var(--brand)" : "var(--border)"}`,
+            }}
+          >
+            Agrupar por portafolio
+          </button>
+        </div>
+
         {loading && <p style={{ color: "var(--text-secondary)" }}>Cargando...</p>}
 
         {error && (
@@ -253,7 +328,20 @@ export default function StatusApiPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {connections.map((c, idx) => {
+                  {groups.map((g) => (
+                    <Fragment key={g.portfolio ?? "all"}>
+                      {groupByPortfolio && g.portfolio && (
+                        <tr key={`header-${g.portfolio}`}>
+                          <td
+                            colSpan={5}
+                            className="px-4 py-2 text-xs font-semibold uppercase tracking-wide"
+                            style={{ background: "rgba(255,255,255,0.04)", color: "var(--text-muted)" }}
+                          >
+                            {g.portfolio} · {g.rows.length}
+                          </td>
+                        </tr>
+                      )}
+                      {g.rows.map((c, idx) => {
                     const q = qualityMeta(c.quality_rating, c.error);
                     const isEditing = editingId === c.id;
                     return isEditing ? (
@@ -357,11 +445,15 @@ export default function StatusApiPage() {
                         </td>
                       </tr>
                     );
-                  })}
-                  {connections.length === 0 && (
+                      })}
+                    </Fragment>
+                  ))}
+                  {filteredConnections.length === 0 && (
                     <tr>
                       <td colSpan={5} className="px-4 py-6 text-center" style={{ color: "var(--text-muted)" }}>
-                        No hay cuentas vinculadas todavía.
+                        {connections.length === 0
+                          ? "No hay cuentas vinculadas todavía."
+                          : "Ninguna cuenta coincide con los filtros."}
                       </td>
                     </tr>
                   )}
