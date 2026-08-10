@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { label: "Reporte Diario", href: "/reporte-diario" },
   { label: "Proyección", href: "/proyeccion" },
   { label: "Distribución", href: "/distribucion" },
+  { label: "Status API", href: "/status-api" },
 ] as const;
 
 export default function Sidebar() {

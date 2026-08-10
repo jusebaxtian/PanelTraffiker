@@ -5,5 +5,6 @@ export function supabaseServer() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
   return createClient(url, serviceRoleKey, {
     auth: { persistSession: false },
+    db: { schema: "paneltraffiker" },
   });
 }
