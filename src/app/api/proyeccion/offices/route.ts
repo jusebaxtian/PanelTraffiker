@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { fetchAllAccountsInsights } from "@/lib/metaAds";
-import { countOpportunitiesInMonth } from "@/lib/ghl";
+import { countContactsByTagInMonth } from "@/lib/ghl";
 import { computeOffice, type CampaignRef, type ProyeccionOffice } from "@/lib/proyeccion";
 
 function monthRange() {
@@ -15,28 +15,24 @@ function rowToOffice(row: {
   id: string;
   admin: string;
   asignacion: string;
-  diario: number;
   gastado: number;
-  costo_ftd_objetivo: number;
   ftd_real: number;
   ftd_meta_mes: number;
   campaigns: CampaignRef[];
-  ghl_pipeline_id: string | null;
-  ghl_pipeline_name: string | null;
+  distribucion_office_id: string | null;
+  ghl_tag: string | null;
   position: number;
 }): ProyeccionOffice {
   return {
     id: row.id,
     admin: row.admin,
     asignacion: row.asignacion,
-    diario: Number(row.diario),
     gastado: Number(row.gastado),
-    costo_ftd_objetivo: Number(row.costo_ftd_objetivo),
     ftd_real: Number(row.ftd_real),
     ftd_meta_mes: Number(row.ftd_meta_mes),
     campaigns: row.campaigns ?? [],
-    ghl_pipeline_id: row.ghl_pipeline_id,
-    ghl_pipeline_name: row.ghl_pipeline_name,
+    distribucion_office_id: row.distribucion_office_id,
+    ghl_tag: row.ghl_tag,
     position: row.position,
   };
 }
@@ -44,22 +40,29 @@ function rowToOffice(row: {
 export async function GET() {
   const supabase = supabaseServer();
 
-  const [{ data: rows, error: officesError }, { data: config }] = await Promise.all([
-    supabase.from("proyeccion_offices").select("*").order("position", { ascending: true }),
-    supabase
-      .from("proyeccion_config")
-      .select("*")
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ]);
+  const [{ data: rows, error: officesError }, { data: config }, { data: distribucionOffices }] =
+    await Promise.all([
+      supabase.from("proyeccion_offices").select("*").order("position", { ascending: true }),
+      supabase
+        .from("proyeccion_config")
+        .select("*")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase.from("offices").select("id, name, admin_amount"),
+    ]);
 
   if (officesError) {
     return NextResponse.json({ error: officesError.message }, { status: 500 });
   }
 
   const diasFaltantes = config?.days_remaining ?? 0;
+  const costoFtdMes = config?.costo_ftd_mes ?? 0;
   const { start, end } = monthRange();
+
+  const diarioByOfficeId = new Map(
+    (distribucionOffices ?? []).map((o: { id: string; admin_amount: number }) => [o.id, Number(o.admin_amount)])
+  );
 
   let insights: Awaited<ReturnType<typeof fetchAllAccountsInsights>> = [];
   try {
@@ -77,16 +80,20 @@ export async function GET() {
         .filter((i) => i.campaign_id && campaignIds.has(i.campaign_id))
         .reduce((sum, i) => sum + Number(i.spend ?? 0), 0);
 
+      const diario = office.distribucion_office_id
+        ? diarioByOfficeId.get(office.distribucion_office_id) ?? 0
+        : 0;
+
       let leadsDelMes = 0;
-      if (office.ghl_pipeline_id) {
+      if (office.ghl_tag) {
         try {
-          leadsDelMes = await countOpportunitiesInMonth(office.ghl_pipeline_id, start, end);
+          leadsDelMes = await countContactsByTagInMonth(office.ghl_tag, start, end);
         } catch {
           leadsDelMes = 0;
         }
       }
 
-      return computeOffice(office, gastoDelMes, leadsDelMes, diasFaltantes);
+      return computeOffice(office, diario, gastoDelMes, leadsDelMes, diasFaltantes, costoFtdMes);
     })
   );
 
@@ -124,5 +131,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ data: computeOffice(rowToOffice(data), 0, 0, 0) });
+  return NextResponse.json({ data: computeOffice(rowToOffice(data), 0, 0, 0, 0, 0) });
 }

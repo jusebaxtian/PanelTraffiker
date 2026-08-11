@@ -9,12 +9,13 @@ interface Config {
   month_label: string;
   total_days: number;
   days_remaining: number;
-  holidays_note: string | null;
+  costo_ftd_mes: number;
 }
 
-interface Pipeline {
+interface DistribucionOffice {
   id: string;
   name: string;
+  admin_amount: number;
 }
 
 function currency(n: number) {
@@ -28,7 +29,7 @@ function number(n: number) {
 export default function ProyeccionPage() {
   const [config, setConfig] = useState<Config | null>(null);
   const [offices, setOffices] = useState<ProyeccionOfficeComputed[]>([]);
-  const [pipelines, setPipelines] = useState<Pipeline[]>([]);
+  const [distribucionOffices, setDistribucionOffices] = useState<DistribucionOffice[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,10 +66,12 @@ export default function ProyeccionPage() {
   useEffect(() => {
     loadConfig();
     loadOffices();
-    fetch("/api/proyeccion/pipelines")
+    fetch("/api/offices")
       .then((res) => res.json())
       .then((json) => {
-        if (!json.error) setPipelines(json.data);
+        if (!json.error) {
+          setDistribucionOffices(json.data.map((o: { id: string; name: string; admin_amount: number }) => o));
+        }
       })
       .catch(() => {});
   }, []);
@@ -80,7 +83,10 @@ export default function ProyeccionPage() {
       body: JSON.stringify(updates),
     });
     const json = await res.json();
-    if (!json.error) setConfig(json.data);
+    if (!json.error) {
+      setConfig(json.data);
+      loadOffices(true);
+    }
   }
 
   async function createOffice() {
@@ -100,7 +106,6 @@ export default function ProyeccionPage() {
   }
 
   async function updateOffice(id: string, updates: Record<string, unknown>) {
-    setOffices((prev) => prev.map((o) => (o.id === id ? { ...o, ...updates } : o)));
     await fetch(`/api/proyeccion/offices/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -177,15 +182,14 @@ export default function ProyeccionPage() {
                 style={{ background: "var(--page)", color: "var(--series-3)", border: "1px solid var(--border)" }}
               />
             </label>
-            <label className="flex flex-1 items-center gap-2 text-sm">
-              <span style={{ color: "var(--text-muted)" }}>Festivos</span>
+            <label className="flex items-center gap-2 text-sm">
+              <span style={{ color: "var(--good)", fontWeight: 600 }}>Costo FTD del mes</span>
               <input
-                type="text"
-                defaultValue={config.holidays_note ?? ""}
-                onBlur={(e) => saveConfig({ holidays_note: e.target.value })}
-                placeholder="ej: 16 y 17 off"
-                className="min-w-40 flex-1 rounded-md px-2 py-1 text-sm outline-none"
-                style={{ background: "var(--page)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+                type="number"
+                defaultValue={config.costo_ftd_mes}
+                onBlur={(e) => saveConfig({ costo_ftd_mes: Number(e.target.value) || 0 })}
+                className="w-32 rounded-md px-2 py-1 text-sm font-semibold outline-none"
+                style={{ background: "var(--page)", color: "var(--good)", border: "1px solid var(--border)" }}
               />
             </label>
           </div>
@@ -246,17 +250,16 @@ export default function ProyeccionPage() {
               <table className="text-left text-sm" style={{ tableLayout: "fixed", minWidth: 2100 }}>
                 <colgroup>
                   <col style={{ width: 90 }} />
-                  <col style={{ width: 170 }} />
-                  <col style={{ width: 110 }} />
+                  <col style={{ width: 190 }} />
+                  <col style={{ width: 150 }} />
                   <col style={{ width: 110 }} />
                   <col style={{ width: 120 }} />
                   <col style={{ width: 130 }} />
                   <col style={{ width: 130 }} />
                   <col style={{ width: 140 }} />
-                  <col style={{ width: 160 }} />
+                  <col style={{ width: 170 }} />
                   <col style={{ width: 110 }} />
                   <col style={{ width: 130 }} />
-                  <col style={{ width: 140 }} />
                   <col style={{ width: 110 }} />
                   <col style={{ width: 110 }} />
                   <col style={{ width: 130 }} />
@@ -269,13 +272,13 @@ export default function ProyeccionPage() {
                     {[
                       "Admin",
                       "Asignación / Campañas",
-                      "$ Diario",
+                      "Oficina (Distribución)",
                       "$ Gastado",
                       "Gasto",
                       "Gasto Total Hoy",
                       "Proyección Cierre",
                       "Gasto Proyección",
-                      "Leads/CRM",
+                      "Leads/CRM (etiqueta GHL)",
                       "Costo x Lead",
                       "Total Mes",
                       "FTD Estimado",
@@ -283,7 +286,6 @@ export default function ProyeccionPage() {
                       "Costo FTD Actual",
                       "FTD Balance",
                       "FTD Meta Mes",
-                      "",
                       "",
                     ].map((h, i) => (
                       <th
@@ -302,7 +304,7 @@ export default function ProyeccionPage() {
                       key={o.id}
                       office={o}
                       idx={idx}
-                      pipelines={pipelines}
+                      distribucionOffices={distribucionOffices}
                       onUpdate={(updates) => updateOffice(o.id, updates)}
                       onDelete={() => deleteOffice(o.id)}
                       onOpenPicker={() => setPickerForId(o.id)}
@@ -310,7 +312,7 @@ export default function ProyeccionPage() {
                   ))}
                   {offices.length === 0 && (
                     <tr>
-                      <td colSpan={18} className="px-4 py-6 text-center" style={{ color: "var(--text-muted)" }}>
+                      <td colSpan={17} className="px-4 py-6 text-center" style={{ color: "var(--text-muted)" }}>
                         No hay oficinas en la proyección todavía.
                       </td>
                     </tr>
@@ -339,14 +341,14 @@ export default function ProyeccionPage() {
 function OfficeRow({
   office,
   idx,
-  pipelines,
+  distribucionOffices,
   onUpdate,
   onDelete,
   onOpenPicker,
 }: {
   office: ProyeccionOfficeComputed;
   idx: number;
-  pipelines: Pipeline[];
+  distribucionOffices: DistribucionOffice[];
   onUpdate: (updates: Record<string, unknown>) => void;
   onDelete: () => void;
   onOpenPicker: () => void;
@@ -366,7 +368,7 @@ function OfficeRow({
           type="text"
           defaultValue={office.admin}
           onBlur={(e) => onUpdate({ admin: e.target.value })}
-          className="w-full rounded px-1 py-0.5 text-sm outline-none hover:border-[var(--border)]"
+          className="w-full rounded px-1 py-0.5 text-sm outline-none"
           style={inputStyle}
         />
       </td>
@@ -383,13 +385,22 @@ function OfficeRow({
         </button>
       </td>
       <td className="px-3 py-2">
-        <input
-          type="number"
-          defaultValue={office.diario}
-          onBlur={(e) => onUpdate({ diario: Number(e.target.value) || 0 })}
-          className="w-full rounded px-1 py-0.5 text-sm outline-none"
-          style={inputStyle}
-        />
+        <select
+          defaultValue={office.distribucion_office_id ?? ""}
+          onChange={(e) => onUpdate({ distribucion_office_id: e.target.value || null })}
+          className="w-full rounded px-1 py-0.5 text-xs outline-none"
+          style={{ background: "var(--page)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+        >
+          <option value="">Sin vincular</option>
+          {distribucionOffices.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.name}
+            </option>
+          ))}
+        </select>
+        <div className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
+          $ Diario: <span style={{ color: "var(--text-primary)" }}>{currency(office.diario)}</span>
+        </div>
       </td>
       <td className="px-3 py-2">
         <input
@@ -414,22 +425,14 @@ function OfficeRow({
       </td>
       <td className="px-3 py-2" style={{ ...cellStyle, color: "var(--series-2)" }}>
         {number(office.leads_crm)}
-        <select
-          defaultValue={office.ghl_pipeline_id ?? ""}
-          onChange={(e) => {
-            const pipeline = pipelines.find((p) => p.id === e.target.value);
-            onUpdate({ ghl_pipeline_id: e.target.value || null, ghl_pipeline_name: pipeline?.name ?? null });
-          }}
+        <input
+          type="text"
+          defaultValue={office.ghl_tag ?? ""}
+          onBlur={(e) => onUpdate({ ghl_tag: e.target.value })}
+          placeholder="ingreso de pauta"
           className="mt-0.5 block w-full rounded px-1 py-0.5 text-xs outline-none"
           style={{ background: "var(--page)", color: "var(--text-muted)", border: "1px solid var(--border)" }}
-        >
-          <option value="">Sin pipeline</option>
-          {pipelines.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+        />
       </td>
       <td className="px-3 py-2" style={cellStyle}>
         {currency(office.costo_x_resultado)}
@@ -439,14 +442,6 @@ function OfficeRow({
       </td>
       <td className="px-3 py-2" style={cellStyle}>
         {number(office.ftd_estimado)}
-        <input
-          type="number"
-          defaultValue={office.costo_ftd_objetivo}
-          onBlur={(e) => onUpdate({ costo_ftd_objetivo: Number(e.target.value) || 0 })}
-          placeholder="costo obj."
-          className="mt-0.5 block w-full rounded px-1 py-0.5 text-xs outline-none"
-          style={{ background: "var(--page)", color: "var(--text-muted)", border: "1px solid var(--border)" }}
-        />
       </td>
       <td className="px-3 py-2">
         <input

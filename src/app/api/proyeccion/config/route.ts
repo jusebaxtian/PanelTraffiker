@@ -25,7 +25,7 @@ export async function PATCH(request: NextRequest) {
   if (typeof body.month_label === "string") updates.month_label = body.month_label;
   if (typeof body.total_days === "number") updates.total_days = body.total_days;
   if (typeof body.days_remaining === "number") updates.days_remaining = body.days_remaining;
-  if (typeof body.holidays_note === "string") updates.holidays_note = body.holidays_note;
+  if (typeof body.costo_ftd_mes === "number") updates.costo_ftd_mes = body.costo_ftd_mes;
 
   const { data: existing } = await supabase
     .from("proyeccion_config")

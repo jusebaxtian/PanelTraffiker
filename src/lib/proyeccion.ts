@@ -3,7 +3,7 @@ export interface ProyeccionConfig {
   month_label: string;
   total_days: number;
   days_remaining: number;
-  holidays_note: string | null;
+  costo_ftd_mes: number;
 }
 
 export interface CampaignRef {
@@ -16,18 +16,17 @@ export interface ProyeccionOffice {
   id: string;
   admin: string;
   asignacion: string;
-  diario: number;
   gastado: number;
-  costo_ftd_objetivo: number;
   ftd_real: number;
   ftd_meta_mes: number;
   campaigns: CampaignRef[];
-  ghl_pipeline_id: string | null;
-  ghl_pipeline_name: string | null;
+  distribucion_office_id: string | null;
+  ghl_tag: string | null;
   position: number;
 }
 
 export interface ProyeccionOfficeComputed extends ProyeccionOffice {
+  diario: number;
   gasto: number;
   gasto_total_hoy: number;
   proyeccion_cierre: number;
@@ -42,23 +41,28 @@ export interface ProyeccionOfficeComputed extends ProyeccionOffice {
 
 export function computeOffice(
   office: ProyeccionOffice,
+  diario: number,
   gastoDelMes: number,
   leadsDelMes: number,
-  diasFaltantes: number
+  diasFaltantes: number,
+  costoFtdMes: number
 ): ProyeccionOfficeComputed {
   const gasto = gastoDelMes;
   const gasto_total_hoy = gasto + office.gastado;
-  const proyeccion_cierre = office.diario * diasFaltantes;
-  const gasto_proyeccion = proyeccion_cierre;
+  const proyeccion_cierre = diario * diasFaltantes;
+  // Gasto Proyección = lo ya gastado + lo que falta por gastar en el
+  // resto del mes (no es lo mismo que Proyección Cierre en solitario).
+  const gasto_proyeccion = gasto_total_hoy + proyeccion_cierre;
   const leads_crm = leadsDelMes;
   const costo_x_resultado = leads_crm > 0 ? gasto_total_hoy / leads_crm : 0;
-  const total_mes = gasto_total_hoy + gasto_proyeccion;
-  const ftd_estimado = office.costo_ftd_objetivo > 0 ? total_mes / office.costo_ftd_objetivo : 0;
+  const total_mes = gasto_proyeccion;
+  const ftd_estimado = costoFtdMes > 0 ? total_mes / costoFtdMes : 0;
   const costo_ftd_actual = office.ftd_real > 0 ? gasto_total_hoy / office.ftd_real : 0;
   const ftd_balance = office.ftd_real - ftd_estimado;
 
   return {
     ...office,
+    diario,
     gasto,
     gasto_total_hoy,
     proyeccion_cierre,
