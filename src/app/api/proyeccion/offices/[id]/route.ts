@@ -7,9 +7,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const body = await request.json();
 
   const updates: Record<string, unknown> = {};
-  if (typeof body.admin === "string") updates.admin = body.admin.trim();
   if (typeof body.asignacion === "string") updates.asignacion = body.asignacion.trim();
-  if (typeof body.gastado === "number") updates.gastado = body.gastado;
   if (typeof body.ftd_real === "number") updates.ftd_real = body.ftd_real;
   if (Array.isArray(body.campaigns)) updates.campaigns = body.campaigns;
   if ("distribucion_office_id" in body) updates.distribucion_office_id = body.distribucion_office_id || null;

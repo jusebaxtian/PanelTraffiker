@@ -1,7 +1,7 @@
 export interface ProyeccionConfig {
   id: string;
+  month_key: string;
   month_label: string;
-  total_days: number;
   days_remaining: number;
   costo_ftd_mes: number;
 }
@@ -14,13 +14,12 @@ export interface CampaignRef {
 
 export interface ProyeccionOffice {
   id: string;
-  admin: string;
   asignacion: string;
-  gastado: number;
   ftd_real: number;
   campaigns: CampaignRef[];
   distribucion_office_id: string | null;
   ghl_tag: string | null;
+  config_id: string;
   position: number;
 }
 
@@ -48,7 +47,7 @@ export function computeOffice(
   costoFtdMes: number
 ): ProyeccionOfficeComputed {
   const gasto = gastoDelMes;
-  const gasto_total_hoy = gasto + office.gastado;
+  const gasto_total_hoy = gasto;
   const proyeccion_cierre = diario * diasFaltantes;
   // Gasto Proyección = lo ya gastado + lo que falta por gastar en el
   // resto del mes (no es lo mismo que Proyección Cierre en solitario).

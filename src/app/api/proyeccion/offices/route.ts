@@ -20,40 +20,38 @@ function monthRange() {
 
 function rowToOffice(row: {
   id: string;
-  admin: string;
   asignacion: string;
-  gastado: number;
   ftd_real: number;
   campaigns: CampaignRef[];
   distribucion_office_id: string | null;
   ghl_tag: string | null;
+  config_id: string;
   position: number;
 }): ProyeccionOffice {
   return {
     id: row.id,
-    admin: row.admin,
     asignacion: row.asignacion,
-    gastado: Number(row.gastado),
     ftd_real: Number(row.ftd_real),
     campaigns: row.campaigns ?? [],
     distribucion_office_id: row.distribucion_office_id,
     ghl_tag: row.ghl_tag,
+    config_id: row.config_id,
     position: row.position,
   };
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const configId = request.nextUrl.searchParams.get("config_id");
+  if (!configId) {
+    return NextResponse.json({ error: "config_id es requerido" }, { status: 400 });
+  }
+
   const supabase = supabaseServer();
 
   const [{ data: rows, error: officesError }, { data: config }, { data: distribucionOffices }, { data: distribucionAgents }] =
     await Promise.all([
-      supabase.from("proyeccion_offices").select("*").order("position", { ascending: true }),
-      supabase
-        .from("proyeccion_config")
-        .select("*")
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+      supabase.from("proyeccion_offices").select("*").eq("config_id", configId).order("position", { ascending: true }),
+      supabase.from("proyeccion_config").select("*").eq("id", configId).maybeSingle(),
       supabase.from("offices").select("id, name"),
       supabase.from("agents").select("id, office_id, type, custom_value"),
     ]);
@@ -116,13 +114,18 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
 
   const asignacion = String(body.asignacion ?? "").trim();
+  const configId = String(body.config_id ?? "").trim();
   if (!asignacion) {
     return NextResponse.json({ error: "El nombre de la oficina es obligatorio" }, { status: 400 });
+  }
+  if (!configId) {
+    return NextResponse.json({ error: "config_id es requerido" }, { status: 400 });
   }
 
   const { data: existing } = await supabase
     .from("proyeccion_offices")
     .select("position")
+    .eq("config_id", configId)
     .order("position", { ascending: false })
     .limit(1);
 
@@ -131,8 +134,8 @@ export async function POST(request: NextRequest) {
   const { data, error } = await supabase
     .from("proyeccion_offices")
     .insert({
-      admin: String(body.admin ?? "").trim(),
       asignacion,
+      config_id: configId,
       position: nextPosition,
     })
     .select()

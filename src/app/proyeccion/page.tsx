@@ -9,10 +9,16 @@ import TagPicker from "@/components/TagPicker";
 
 interface Config {
   id: string;
+  month_key: string;
   month_label: string;
-  total_days: number;
   days_remaining: number;
   costo_ftd_mes: number;
+}
+
+interface MonthOption {
+  id: string;
+  month_key: string;
+  month_label: string;
 }
 
 interface DistribucionOffice {
@@ -30,6 +36,8 @@ function number(n: number) {
 }
 
 export default function ProyeccionPage() {
+  const [months, setMonths] = useState<MonthOption[]>([]);
+  const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
   const [config, setConfig] = useState<Config | null>(null);
   const [offices, setOffices] = useState<ProyeccionOfficeComputed[]>([]);
   const [distribucionOffices, setDistribucionOffices] = useState<DistribucionOffice[]>([]);
@@ -41,18 +49,19 @@ export default function ProyeccionPage() {
   const [officePickerForId, setOfficePickerForId] = useState<string | null>(null);
   const [tagPickerForId, setTagPickerForId] = useState<string | null>(null);
 
-  function loadConfig() {
-    fetch("/api/proyeccion/config")
+  function loadConfig(monthKey: string) {
+    return fetch(`/api/proyeccion/config/${monthKey}`)
       .then((res) => res.json())
       .then((json) => {
         if (!json.error) setConfig(json.data);
+        return json;
       });
   }
 
-  function loadOffices(silent = false) {
+  function loadOffices(configId: string, silent = false) {
     if (!silent) setLoading(true);
     else setRefreshing(true);
-    fetch("/api/proyeccion/offices")
+    fetch(`/api/proyeccion/offices?config_id=${configId}`)
       .then((res) => res.json())
       .then((json) => {
         if (json.error) setError(json.error);
@@ -68,9 +77,26 @@ export default function ProyeccionPage() {
       });
   }
 
+  async function selectMonth(monthKey: string) {
+    setSelectedMonthKey(monthKey);
+    setLoading(true);
+    const configJson = await loadConfig(monthKey);
+    if (configJson?.data?.id) {
+      loadOffices(configJson.data.id);
+    } else {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
-    loadConfig();
-    loadOffices();
+    fetch("/api/proyeccion/months")
+      .then((res) => res.json())
+      .then((json) => {
+        if (!json.error) {
+          setMonths(json.data.months);
+          selectMonth(json.data.currentMonthKey);
+        }
+      });
     fetch("/api/offices")
       .then((res) => res.json())
       .then((json) => {
@@ -85,10 +111,16 @@ export default function ProyeccionPage() {
         }
       })
       .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function refresh() {
+    if (config) loadOffices(config.id, true);
+  }
+
   async function saveConfig(updates: Partial<Config>) {
-    const res = await fetch("/api/proyeccion/config", {
+    if (!config) return;
+    const res = await fetch(`/api/proyeccion/config/${config.month_key}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updates),
@@ -96,16 +128,17 @@ export default function ProyeccionPage() {
     const json = await res.json();
     if (!json.error) {
       setConfig(json.data);
-      loadOffices(true);
+      setMonths((prev) => prev.map((m) => (m.id === json.data.id ? { ...m, month_label: json.data.month_label } : m)));
+      loadOffices(json.data.id, true);
     }
   }
 
   async function createOffice() {
-    if (!newOfficeName.trim()) return;
+    if (!newOfficeName.trim() || !config) return;
     const res = await fetch("/api/proyeccion/offices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ asignacion: newOfficeName.trim() }),
+      body: JSON.stringify({ asignacion: newOfficeName.trim(), config_id: config.id }),
     });
     const json = await res.json();
     if (json.error) {
@@ -113,7 +146,7 @@ export default function ProyeccionPage() {
       return;
     }
     setNewOfficeName("");
-    loadOffices(true);
+    loadOffices(config.id, true);
   }
 
   async function updateOffice(id: string, updates: Record<string, unknown>) {
@@ -122,7 +155,7 @@ export default function ProyeccionPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updates),
     });
-    loadOffices(true);
+    if (config) loadOffices(config.id, true);
   }
 
   async function deleteOffice(id: string) {
@@ -165,27 +198,34 @@ export default function ProyeccionPage() {
           >
             <label className="flex items-center gap-2 text-sm">
               <span style={{ color: "var(--text-muted)" }}>Mes</span>
+              <select
+                value={selectedMonthKey ?? ""}
+                onChange={(e) => selectMonth(e.target.value)}
+                className="rounded-md px-2 py-1 text-sm outline-none"
+                style={{ background: "var(--page)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+              >
+                {months.map((m) => (
+                  <option key={m.month_key} value={m.month_key}>
+                    {m.month_label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <span style={{ color: "var(--text-muted)" }}>Nombre del mes</span>
               <input
+                key={config.id}
                 type="text"
                 defaultValue={config.month_label}
                 onBlur={(e) => saveConfig({ month_label: e.target.value })}
-                className="w-32 rounded-md px-2 py-1 text-sm outline-none"
-                style={{ background: "var(--page)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
-              />
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <span style={{ color: "var(--text-muted)" }}>Días totales</span>
-              <input
-                type="number"
-                defaultValue={config.total_days}
-                onBlur={(e) => saveConfig({ total_days: Number(e.target.value) || 0 })}
-                className="w-20 rounded-md px-2 py-1 text-sm outline-none"
+                className="w-36 rounded-md px-2 py-1 text-sm outline-none"
                 style={{ background: "var(--page)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
               />
             </label>
             <label className="flex items-center gap-2 text-sm">
               <span style={{ color: "var(--series-3)", fontWeight: 600 }}>Días faltantes</span>
               <input
+                key={config.id}
                 type="number"
                 defaultValue={config.days_remaining}
                 onBlur={(e) => saveConfig({ days_remaining: Number(e.target.value) || 0 })}
@@ -196,6 +236,7 @@ export default function ProyeccionPage() {
             <label className="flex items-center gap-2 text-sm">
               <span style={{ color: "var(--good)", fontWeight: 600 }}>Costo FTD del mes</span>
               <input
+                key={config.id}
                 type="number"
                 defaultValue={config.costo_ftd_mes}
                 onBlur={(e) => saveConfig({ costo_ftd_mes: Number(e.target.value) || 0 })}
@@ -235,7 +276,7 @@ export default function ProyeccionPage() {
             + Nueva oficina
           </button>
           <button
-            onClick={() => loadOffices(true)}
+            onClick={refresh}
             disabled={refreshing}
             className="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
             style={{ background: "var(--surface)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
@@ -258,13 +299,10 @@ export default function ProyeccionPage() {
         {!loading && (
           <div className="overflow-hidden rounded-lg" style={{ border: "1px solid var(--border)", background: "var(--surface)" }}>
             <div className="overflow-x-auto">
-              <table className="text-left text-sm" style={{ tableLayout: "fixed", minWidth: 2100 }}>
+              <table className="text-left text-sm" style={{ tableLayout: "fixed", minWidth: 1850 }}>
                 <colgroup>
-                  <col style={{ width: 90 }} />
                   <col style={{ width: 190 }} />
-                  <col style={{ width: 150 }} />
-                  <col style={{ width: 110 }} />
-                  <col style={{ width: 120 }} />
+                  <col style={{ width: 170 }} />
                   <col style={{ width: 130 }} />
                   <col style={{ width: 130 }} />
                   <col style={{ width: 140 }} />
@@ -281,10 +319,8 @@ export default function ProyeccionPage() {
                 <thead>
                   <tr style={{ borderBottom: "1px solid var(--gridline)" }}>
                     {[
-                      "Admin",
                       "Asignación / Campañas",
                       "Oficina (Distribución)",
-                      "$ Gastado",
                       "Gasto",
                       "Gasto Total Hoy",
                       "Proyección Cierre",
@@ -325,7 +361,7 @@ export default function ProyeccionPage() {
                   ))}
                   {offices.length === 0 && (
                     <tr>
-                      <td colSpan={17} className="px-4 py-6 text-center" style={{ color: "var(--text-muted)" }}>
+                      <td colSpan={15} className="px-4 py-6 text-center" style={{ color: "var(--text-muted)" }}>
                         No hay oficinas en la proyección todavía.
                       </td>
                     </tr>
@@ -407,15 +443,6 @@ function OfficeRow({
       <td className="px-3 py-2">
         <input
           type="text"
-          defaultValue={office.admin}
-          onBlur={(e) => onUpdate({ admin: e.target.value })}
-          className="w-full rounded px-1 py-0.5 text-sm outline-none"
-          style={inputStyle}
-        />
-      </td>
-      <td className="px-3 py-2">
-        <input
-          type="text"
           defaultValue={office.asignacion}
           onBlur={(e) => onUpdate({ asignacion: e.target.value })}
           className="w-full rounded px-1 py-0.5 text-sm font-medium outline-none"
@@ -436,15 +463,6 @@ function OfficeRow({
         <div className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
           $ Diario: <span style={{ color: "var(--text-primary)" }}>{currency(office.diario)}</span>
         </div>
-      </td>
-      <td className="px-3 py-2">
-        <input
-          type="number"
-          defaultValue={office.gastado}
-          onBlur={(e) => onUpdate({ gastado: Number(e.target.value) || 0 })}
-          className="w-full rounded px-1 py-0.5 text-sm outline-none"
-          style={inputStyle}
-        />
       </td>
       <td className="px-3 py-2" style={cellStyle}>
         {currency(office.gasto)}
