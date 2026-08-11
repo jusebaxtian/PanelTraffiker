@@ -1,21 +1,14 @@
 const GHL_API_VERSION = "2021-07-28";
 const GHL_BASE_URL = "https://services.leadconnectorhq.com";
 
-function getAccessToken(): string {
-  const token = process.env.GHL_ACCESS_TOKEN;
-  if (!token) throw new Error("GHL_ACCESS_TOKEN no está configurado");
-  return token;
+export interface GhlCredentials {
+  locationId: string;
+  accessToken: string;
 }
 
-function getLocationId(): string {
-  const id = process.env.GHL_LOCATION_ID;
-  if (!id) throw new Error("GHL_LOCATION_ID no está configurado");
-  return id;
-}
-
-function ghlHeaders() {
+function ghlHeaders(accessToken: string) {
   return {
-    Authorization: `Bearer ${getAccessToken()}`,
+    Authorization: `Bearer ${accessToken}`,
     Version: GHL_API_VERSION,
     "Content-Type": "application/json",
   };
@@ -25,6 +18,7 @@ function ghlHeaders() {
 // paginamos desde el más reciente y cortamos apenas encontramos uno
 // anterior al inicio del mes — evita recorrer miles de contactos.
 export async function countContactsByTagInMonth(
+  creds: GhlCredentials,
   tag: string,
   monthStart: Date,
   monthEnd: Date
@@ -35,7 +29,7 @@ export async function countContactsByTagInMonth(
 
   for (let page = 0; page < 300; page++) {
     const body: Record<string, unknown> = {
-      locationId: getLocationId(),
+      locationId: creds.locationId,
       pageLimit,
       filters: [{ field: "tags", operator: "contains", value: tag }],
       sort: [{ field: "dateAdded", direction: "desc" }],
@@ -44,7 +38,7 @@ export async function countContactsByTagInMonth(
 
     const res = await fetch(`${GHL_BASE_URL}/contacts/search`, {
       method: "POST",
-      headers: ghlHeaders(),
+      headers: ghlHeaders(creds.accessToken),
       body: JSON.stringify(body),
     });
     const json = await res.json();
@@ -78,7 +72,7 @@ export async function countContactsByTagInMonth(
 
 // La cuenta no tiene scope para /locations/{id}/tags, así que se arma la
 // lista de etiquetas disponibles muestreando los contactos más recientes.
-export async function fetchRecentTags(sampleSize = 500): Promise<string[]> {
+export async function fetchRecentTags(creds: GhlCredentials, sampleSize = 500): Promise<string[]> {
   const tags = new Set<string>();
   let searchAfter: [number, string] | null = null;
   const pageLimit = 100;
@@ -86,7 +80,7 @@ export async function fetchRecentTags(sampleSize = 500): Promise<string[]> {
 
   for (let page = 0; page < 20 && fetched < sampleSize; page++) {
     const body: Record<string, unknown> = {
-      locationId: getLocationId(),
+      locationId: creds.locationId,
       pageLimit,
       sort: [{ field: "dateAdded", direction: "desc" }],
     };
@@ -94,7 +88,7 @@ export async function fetchRecentTags(sampleSize = 500): Promise<string[]> {
 
     const res = await fetch(`${GHL_BASE_URL}/contacts/search`, {
       method: "POST",
-      headers: ghlHeaders(),
+      headers: ghlHeaders(creds.accessToken),
       body: JSON.stringify(body),
     });
     const json = await res.json();

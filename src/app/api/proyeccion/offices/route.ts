@@ -25,6 +25,7 @@ function rowToOffice(row: {
   campaigns: CampaignRef[];
   distribucion_office_id: string | null;
   ghl_tag: string | null;
+  crm_connection_id: string | null;
   config_id: string;
   position: number;
 }): ProyeccionOffice {
@@ -35,6 +36,7 @@ function rowToOffice(row: {
     campaigns: row.campaigns ?? [],
     distribucion_office_id: row.distribucion_office_id,
     ghl_tag: row.ghl_tag,
+    crm_connection_id: row.crm_connection_id,
     config_id: row.config_id,
     position: row.position,
   };
@@ -48,13 +50,19 @@ export async function GET(request: NextRequest) {
 
   const supabase = supabaseServer();
 
-  const [{ data: rows, error: officesError }, { data: config }, { data: distribucionOffices }, { data: distribucionAgents }] =
-    await Promise.all([
-      supabase.from("proyeccion_offices").select("*").eq("config_id", configId).order("position", { ascending: true }),
-      supabase.from("proyeccion_config").select("*").eq("id", configId).maybeSingle(),
-      supabase.from("offices").select("id, name"),
-      supabase.from("agents").select("id, office_id, type, custom_value"),
-    ]);
+  const [
+    { data: rows, error: officesError },
+    { data: config },
+    { data: distribucionOffices },
+    { data: distribucionAgents },
+    { data: crmConnections },
+  ] = await Promise.all([
+    supabase.from("proyeccion_offices").select("*").eq("config_id", configId).order("position", { ascending: true }),
+    supabase.from("proyeccion_config").select("*").eq("id", configId).maybeSingle(),
+    supabase.from("offices").select("id, name"),
+    supabase.from("agents").select("id, office_id, type, custom_value"),
+    supabase.from("proyeccion_crm_connections").select("id, location_id, access_token"),
+  ]);
 
   if (officesError) {
     return NextResponse.json({ error: officesError.message }, { status: 500 });
@@ -82,6 +90,10 @@ export async function GET(request: NextRequest) {
 
   const offices = (rows ?? []).map(rowToOffice);
 
+  const crmConnectionById = new Map(
+    (crmConnections ?? []).map((c: { id: string; location_id: string; access_token: string }) => [c.id, c])
+  );
+
   const data = await Promise.all(
     offices.map(async (office) => {
       const campaignIds = new Set(office.campaigns.map((c) => c.campaign_id));
@@ -94,9 +106,15 @@ export async function GET(request: NextRequest) {
         : 0;
 
       let leadsDelMes = 0;
-      if (office.ghl_tag) {
+      const connection = office.crm_connection_id ? crmConnectionById.get(office.crm_connection_id) : null;
+      if (office.ghl_tag && connection) {
         try {
-          leadsDelMes = await countContactsByTagInMonth(office.ghl_tag, start, end);
+          leadsDelMes = await countContactsByTagInMonth(
+            { locationId: connection.location_id, accessToken: connection.access_token },
+            office.ghl_tag,
+            start,
+            end
+          );
         } catch {
           leadsDelMes = 0;
         }

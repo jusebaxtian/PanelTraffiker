@@ -19,6 +19,7 @@ export interface ProyeccionOffice {
   campaigns: CampaignRef[];
   distribucion_office_id: string | null;
   ghl_tag: string | null;
+  crm_connection_id: string | null;
   config_id: string;
   position: number;
 }

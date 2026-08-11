@@ -5,7 +5,7 @@ import type { ProyeccionOfficeComputed } from "@/lib/proyeccion";
 import { officeTotal, type Agent } from "@/lib/distribucion";
 import CampaignPicker from "@/components/CampaignPicker";
 import OfficePicker from "@/components/OfficePicker";
-import TagPicker from "@/components/TagPicker";
+import CrmTagPicker from "@/components/CrmTagPicker";
 
 interface Config {
   id: string;
@@ -27,6 +27,12 @@ interface DistribucionOffice {
   total: number;
 }
 
+interface CrmConnection {
+  id: string;
+  name: string;
+  location_id: string;
+}
+
 function currency(n: number) {
   return n.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 }
@@ -41,13 +47,14 @@ export default function ProyeccionPage() {
   const [config, setConfig] = useState<Config | null>(null);
   const [offices, setOffices] = useState<ProyeccionOfficeComputed[]>([]);
   const [distribucionOffices, setDistribucionOffices] = useState<DistribucionOffice[]>([]);
+  const [crmConnections, setCrmConnections] = useState<CrmConnection[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newOfficeName, setNewOfficeName] = useState("");
   const [campaignPickerForId, setCampaignPickerForId] = useState<string | null>(null);
   const [officePickerForId, setOfficePickerForId] = useState<string | null>(null);
-  const [tagPickerForId, setTagPickerForId] = useState<string | null>(null);
+  const [crmPickerForId, setCrmPickerForId] = useState<string | null>(null);
 
   function loadConfig(monthKey: string) {
     return fetch(`/api/proyeccion/config/${monthKey}`)
@@ -109,6 +116,12 @@ export default function ProyeccionPage() {
             }))
           );
         }
+      })
+      .catch(() => {});
+    fetch("/api/proyeccion/crm-connections")
+      .then((res) => res.json())
+      .then((json) => {
+        if (!json.error) setCrmConnections(json.data);
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -354,9 +367,10 @@ export default function ProyeccionPage() {
                       distribucionOffices={distribucionOffices}
                       onUpdate={(updates) => updateOffice(o.id, updates)}
                       onDelete={() => deleteOffice(o.id)}
+                      crmConnections={crmConnections}
                       onOpenCampaignPicker={() => setCampaignPickerForId(o.id)}
                       onOpenOfficePicker={() => setOfficePickerForId(o.id)}
-                      onOpenTagPicker={() => setTagPickerForId(o.id)}
+                      onOpenCrmPicker={() => setCrmPickerForId(o.id)}
                     />
                   ))}
                   {offices.length === 0 && (
@@ -396,13 +410,16 @@ export default function ProyeccionPage() {
         />
       )}
 
-      {tagPickerForId && (
-        <TagPicker
-          selected={offices.find((o) => o.id === tagPickerForId)?.ghl_tag ?? null}
-          onClose={() => setTagPickerForId(null)}
-          onSave={(ghl_tag) => {
-            updateOffice(tagPickerForId, { ghl_tag });
-            setTagPickerForId(null);
+      {crmPickerForId && (
+        <CrmTagPicker
+          connections={crmConnections}
+          selectedConnectionId={offices.find((o) => o.id === crmPickerForId)?.crm_connection_id ?? null}
+          selectedTag={offices.find((o) => o.id === crmPickerForId)?.ghl_tag ?? null}
+          onClose={() => setCrmPickerForId(null)}
+          onConnectionCreated={(connection) => setCrmConnections((prev) => [...prev, connection])}
+          onSave={(crm_connection_id, ghl_tag) => {
+            updateOffice(crmPickerForId, { crm_connection_id, ghl_tag });
+            setCrmPickerForId(null);
           }}
         />
       )}
@@ -414,22 +431,25 @@ function OfficeRow({
   office,
   idx,
   distribucionOffices,
+  crmConnections,
   onUpdate,
   onDelete,
   onOpenCampaignPicker,
   onOpenOfficePicker,
-  onOpenTagPicker,
+  onOpenCrmPicker,
 }: {
   office: ProyeccionOfficeComputed;
   idx: number;
   distribucionOffices: DistribucionOffice[];
+  crmConnections: CrmConnection[];
   onUpdate: (updates: Record<string, unknown>) => void;
   onDelete: () => void;
   onOpenCampaignPicker: () => void;
   onOpenOfficePicker: () => void;
-  onOpenTagPicker: () => void;
+  onOpenCrmPicker: () => void;
 }) {
   const linkedOfficeName = distribucionOffices.find((d) => d.id === office.distribucion_office_id)?.name;
+  const linkedCrmName = crmConnections.find((c) => c.id === office.crm_connection_id)?.name;
   const cellStyle = { color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" as const };
   const inputStyle = {
     background: "transparent",
@@ -479,11 +499,11 @@ function OfficeRow({
       <td className="px-3 py-2" style={{ ...cellStyle, color: "var(--series-2)" }}>
         {number(office.leads_crm)}
         <button
-          onClick={onOpenTagPicker}
+          onClick={onOpenCrmPicker}
           className="mt-0.5 block truncate text-left text-xs"
-          style={{ color: office.ghl_tag ? "var(--text-muted)" : "var(--brand)" }}
+          style={{ color: office.ghl_tag && linkedCrmName ? "var(--text-muted)" : "var(--brand)" }}
         >
-          {office.ghl_tag ?? "Elegir etiqueta"} ✎
+          {linkedCrmName && office.ghl_tag ? `${linkedCrmName}: ${office.ghl_tag}` : "Elegir CRM y etiqueta"} ✎
         </button>
       </td>
       <td className="px-3 py-2" style={cellStyle}>
