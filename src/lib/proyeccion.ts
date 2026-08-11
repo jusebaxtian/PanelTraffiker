@@ -18,7 +18,6 @@ export interface ProyeccionOffice {
   asignacion: string;
   gastado: number;
   ftd_real: number;
-  ftd_meta_mes: number;
   campaigns: CampaignRef[];
   distribucion_office_id: string | null;
   ghl_tag: string | null;
@@ -37,6 +36,7 @@ export interface ProyeccionOfficeComputed extends ProyeccionOffice {
   ftd_estimado: number;
   costo_ftd_actual: number;
   ftd_balance: number;
+  ftd_meta_mes: number;
 }
 
 export function computeOffice(
@@ -56,7 +56,8 @@ export function computeOffice(
   const leads_crm = leadsDelMes;
   const costo_x_resultado = leads_crm > 0 ? gasto_total_hoy / leads_crm : 0;
   const total_mes = gasto_proyeccion;
-  const ftd_estimado = costoFtdMes > 0 ? total_mes / costoFtdMes : 0;
+  const ftd_estimado = costoFtdMes > 0 ? gasto_total_hoy / costoFtdMes : 0;
+  const ftd_meta_mes = costoFtdMes > 0 ? total_mes / costoFtdMes : 0;
   const costo_ftd_actual = office.ftd_real > 0 ? gasto_total_hoy / office.ftd_real : 0;
   const ftd_balance = office.ftd_real - ftd_estimado;
 
@@ -73,5 +74,6 @@ export function computeOffice(
     ftd_estimado,
     costo_ftd_actual,
     ftd_balance,
+    ftd_meta_mes,
   };
 }

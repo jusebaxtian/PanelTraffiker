@@ -75,3 +75,45 @@ export async function countContactsByTagInMonth(
 
   return count;
 }
+
+// La cuenta no tiene scope para /locations/{id}/tags, así que se arma la
+// lista de etiquetas disponibles muestreando los contactos más recientes.
+export async function fetchRecentTags(sampleSize = 500): Promise<string[]> {
+  const tags = new Set<string>();
+  let searchAfter: [number, string] | null = null;
+  const pageLimit = 100;
+  let fetched = 0;
+
+  for (let page = 0; page < 20 && fetched < sampleSize; page++) {
+    const body: Record<string, unknown> = {
+      locationId: getLocationId(),
+      pageLimit,
+      sort: [{ field: "dateAdded", direction: "desc" }],
+    };
+    if (searchAfter) body.searchAfter = searchAfter;
+
+    const res = await fetch(`${GHL_BASE_URL}/contacts/search`, {
+      method: "POST",
+      headers: ghlHeaders(),
+      body: JSON.stringify(body),
+    });
+    const json = await res.json();
+
+    if (json.error || json.statusCode >= 400) {
+      throw new Error(json.message ?? "Error consultando etiquetas de GoHighLevel");
+    }
+
+    const contacts: Array<{ tags?: string[]; searchAfter: [number, string] }> = json.contacts ?? [];
+    if (contacts.length === 0) break;
+
+    for (const c of contacts) {
+      (c.tags ?? []).forEach((t) => tags.add(t));
+    }
+    fetched += contacts.length;
+
+    if (contacts.length < pageLimit) break;
+    searchAfter = contacts[contacts.length - 1].searchAfter;
+  }
+
+  return Array.from(tags).sort((a, b) => a.localeCompare(b));
+}

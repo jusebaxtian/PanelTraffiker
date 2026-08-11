@@ -3,6 +3,13 @@ import { supabaseServer } from "@/lib/supabaseServer";
 import { fetchAllAccountsInsights } from "@/lib/metaAds";
 import { countContactsByTagInMonth } from "@/lib/ghl";
 import { computeOffice, type CampaignRef, type ProyeccionOffice } from "@/lib/proyeccion";
+import { officeTotal } from "@/lib/distribucion";
+
+interface AgentRow {
+  office_id: string;
+  type: "junior" | "ejecutivo";
+  custom_value: number | null;
+}
 
 function monthRange() {
   const now = new Date();
@@ -17,7 +24,6 @@ function rowToOffice(row: {
   asignacion: string;
   gastado: number;
   ftd_real: number;
-  ftd_meta_mes: number;
   campaigns: CampaignRef[];
   distribucion_office_id: string | null;
   ghl_tag: string | null;
@@ -29,7 +35,6 @@ function rowToOffice(row: {
     asignacion: row.asignacion,
     gastado: Number(row.gastado),
     ftd_real: Number(row.ftd_real),
-    ftd_meta_mes: Number(row.ftd_meta_mes),
     campaigns: row.campaigns ?? [],
     distribucion_office_id: row.distribucion_office_id,
     ghl_tag: row.ghl_tag,
@@ -40,7 +45,7 @@ function rowToOffice(row: {
 export async function GET() {
   const supabase = supabaseServer();
 
-  const [{ data: rows, error: officesError }, { data: config }, { data: distribucionOffices }] =
+  const [{ data: rows, error: officesError }, { data: config }, { data: distribucionOffices }, { data: distribucionAgents }] =
     await Promise.all([
       supabase.from("proyeccion_offices").select("*").order("position", { ascending: true }),
       supabase
@@ -49,7 +54,8 @@ export async function GET() {
         .order("updated_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
-      supabase.from("offices").select("id, name, admin_amount"),
+      supabase.from("offices").select("id, name"),
+      supabase.from("agents").select("id, office_id, type, custom_value"),
     ]);
 
   if (officesError) {
@@ -60,8 +66,13 @@ export async function GET() {
   const costoFtdMes = config?.costo_ftd_mes ?? 0;
   const { start, end } = monthRange();
 
+  // $ Diario se toma del valor TOTAL de la oficina en Distribución
+  // (suma de sus agentes), no del monto de admin.
   const diarioByOfficeId = new Map(
-    (distribucionOffices ?? []).map((o: { id: string; admin_amount: number }) => [o.id, Number(o.admin_amount)])
+    (distribucionOffices ?? []).map((o: { id: string }) => [
+      o.id,
+      officeTotal({ agents: (distribucionAgents ?? []).filter((a: AgentRow) => a.office_id === o.id) }),
+    ])
   );
 
   let insights: Awaited<ReturnType<typeof fetchAllAccountsInsights>> = [];

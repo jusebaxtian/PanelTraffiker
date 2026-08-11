@@ -25,6 +25,6 @@ export function agentValue(agent: Pick<Agent, "type" | "custom_value">): number 
   return agent.custom_value ?? EJECUTIVO_DEFAULT_VALUE;
 }
 
-export function officeTotal(office: Pick<Office, "agents">): number {
+export function officeTotal(office: { agents: Pick<Agent, "type" | "custom_value">[] }): number {
   return office.agents.reduce((sum, a) => sum + agentValue(a), 0);
 }

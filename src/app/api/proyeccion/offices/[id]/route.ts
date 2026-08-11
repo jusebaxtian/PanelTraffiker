@@ -11,7 +11,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (typeof body.asignacion === "string") updates.asignacion = body.asignacion.trim();
   if (typeof body.gastado === "number") updates.gastado = body.gastado;
   if (typeof body.ftd_real === "number") updates.ftd_real = body.ftd_real;
-  if (typeof body.ftd_meta_mes === "number") updates.ftd_meta_mes = body.ftd_meta_mes;
   if (Array.isArray(body.campaigns)) updates.campaigns = body.campaigns;
   if ("distribucion_office_id" in body) updates.distribucion_office_id = body.distribucion_office_id || null;
   if ("ghl_tag" in body) updates.ghl_tag = body.ghl_tag || null;

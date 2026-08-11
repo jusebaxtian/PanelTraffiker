@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import type { ProyeccionOfficeComputed } from "@/lib/proyeccion";
+import { officeTotal, type Agent } from "@/lib/distribucion";
 import CampaignPicker from "@/components/CampaignPicker";
+import OfficePicker from "@/components/OfficePicker";
+import TagPicker from "@/components/TagPicker";
 
 interface Config {
   id: string;
@@ -15,7 +18,7 @@ interface Config {
 interface DistribucionOffice {
   id: string;
   name: string;
-  admin_amount: number;
+  total: number;
 }
 
 function currency(n: number) {
@@ -34,7 +37,9 @@ export default function ProyeccionPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newOfficeName, setNewOfficeName] = useState("");
-  const [pickerForId, setPickerForId] = useState<string | null>(null);
+  const [campaignPickerForId, setCampaignPickerForId] = useState<string | null>(null);
+  const [officePickerForId, setOfficePickerForId] = useState<string | null>(null);
+  const [tagPickerForId, setTagPickerForId] = useState<string | null>(null);
 
   function loadConfig() {
     fetch("/api/proyeccion/config")
@@ -70,7 +75,13 @@ export default function ProyeccionPage() {
       .then((res) => res.json())
       .then((json) => {
         if (!json.error) {
-          setDistribucionOffices(json.data.map((o: { id: string; name: string; admin_amount: number }) => o));
+          setDistribucionOffices(
+            json.data.map((o: { id: string; name: string; agents: Agent[] }) => ({
+              id: o.id,
+              name: o.name,
+              total: officeTotal({ agents: o.agents }),
+            }))
+          );
         }
       })
       .catch(() => {});
@@ -307,7 +318,9 @@ export default function ProyeccionPage() {
                       distribucionOffices={distribucionOffices}
                       onUpdate={(updates) => updateOffice(o.id, updates)}
                       onDelete={() => deleteOffice(o.id)}
-                      onOpenPicker={() => setPickerForId(o.id)}
+                      onOpenCampaignPicker={() => setCampaignPickerForId(o.id)}
+                      onOpenOfficePicker={() => setOfficePickerForId(o.id)}
+                      onOpenTagPicker={() => setTagPickerForId(o.id)}
                     />
                   ))}
                   {offices.length === 0 && (
@@ -324,13 +337,36 @@ export default function ProyeccionPage() {
         )}
       </main>
 
-      {pickerForId && (
+      {campaignPickerForId && (
         <CampaignPicker
-          selected={offices.find((o) => o.id === pickerForId)?.campaigns ?? []}
-          onClose={() => setPickerForId(null)}
+          selected={offices.find((o) => o.id === campaignPickerForId)?.campaigns ?? []}
+          onClose={() => setCampaignPickerForId(null)}
           onSave={(campaigns) => {
-            updateOffice(pickerForId, { campaigns });
-            setPickerForId(null);
+            updateOffice(campaignPickerForId, { campaigns });
+            setCampaignPickerForId(null);
+          }}
+        />
+      )}
+
+      {officePickerForId && (
+        <OfficePicker
+          options={distribucionOffices}
+          selectedId={offices.find((o) => o.id === officePickerForId)?.distribucion_office_id ?? null}
+          onClose={() => setOfficePickerForId(null)}
+          onSave={(distribucion_office_id) => {
+            updateOffice(officePickerForId, { distribucion_office_id });
+            setOfficePickerForId(null);
+          }}
+        />
+      )}
+
+      {tagPickerForId && (
+        <TagPicker
+          selected={offices.find((o) => o.id === tagPickerForId)?.ghl_tag ?? null}
+          onClose={() => setTagPickerForId(null)}
+          onSave={(ghl_tag) => {
+            updateOffice(tagPickerForId, { ghl_tag });
+            setTagPickerForId(null);
           }}
         />
       )}
@@ -344,15 +380,20 @@ function OfficeRow({
   distribucionOffices,
   onUpdate,
   onDelete,
-  onOpenPicker,
+  onOpenCampaignPicker,
+  onOpenOfficePicker,
+  onOpenTagPicker,
 }: {
   office: ProyeccionOfficeComputed;
   idx: number;
   distribucionOffices: DistribucionOffice[];
   onUpdate: (updates: Record<string, unknown>) => void;
   onDelete: () => void;
-  onOpenPicker: () => void;
+  onOpenCampaignPicker: () => void;
+  onOpenOfficePicker: () => void;
+  onOpenTagPicker: () => void;
 }) {
+  const linkedOfficeName = distribucionOffices.find((d) => d.id === office.distribucion_office_id)?.name;
   const cellStyle = { color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" as const };
   const inputStyle = {
     background: "transparent",
@@ -380,24 +421,18 @@ function OfficeRow({
           className="w-full rounded px-1 py-0.5 text-sm font-medium outline-none"
           style={{ ...inputStyle, color: "var(--text-primary)" }}
         />
-        <button onClick={onOpenPicker} className="mt-0.5 block text-xs" style={{ color: "var(--brand)" }}>
+        <button onClick={onOpenCampaignPicker} className="mt-0.5 block text-xs" style={{ color: "var(--brand)" }}>
           {office.campaigns.length} campaña{office.campaigns.length !== 1 ? "s" : ""} ✎
         </button>
       </td>
       <td className="px-3 py-2">
-        <select
-          defaultValue={office.distribucion_office_id ?? ""}
-          onChange={(e) => onUpdate({ distribucion_office_id: e.target.value || null })}
-          className="w-full rounded px-1 py-0.5 text-xs outline-none"
-          style={{ background: "var(--page)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+        <button
+          onClick={onOpenOfficePicker}
+          className="block w-full truncate rounded px-1 py-0.5 text-left text-sm outline-none"
+          style={{ color: linkedOfficeName ? "var(--text-primary)" : "var(--text-muted)" }}
         >
-          <option value="">Sin vincular</option>
-          {distribucionOffices.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
+          {linkedOfficeName ?? "Sin vincular"} ✎
+        </button>
         <div className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
           $ Diario: <span style={{ color: "var(--text-primary)" }}>{currency(office.diario)}</span>
         </div>
@@ -425,14 +460,13 @@ function OfficeRow({
       </td>
       <td className="px-3 py-2" style={{ ...cellStyle, color: "var(--series-2)" }}>
         {number(office.leads_crm)}
-        <input
-          type="text"
-          defaultValue={office.ghl_tag ?? ""}
-          onBlur={(e) => onUpdate({ ghl_tag: e.target.value })}
-          placeholder="ingreso de pauta"
-          className="mt-0.5 block w-full rounded px-1 py-0.5 text-xs outline-none"
-          style={{ background: "var(--page)", color: "var(--text-muted)", border: "1px solid var(--border)" }}
-        />
+        <button
+          onClick={onOpenTagPicker}
+          className="mt-0.5 block truncate text-left text-xs"
+          style={{ color: office.ghl_tag ? "var(--text-muted)" : "var(--brand)" }}
+        >
+          {office.ghl_tag ?? "Elegir etiqueta"} ✎
+        </button>
       </td>
       <td className="px-3 py-2" style={cellStyle}>
         {currency(office.costo_x_resultado)}
@@ -462,14 +496,8 @@ function OfficeRow({
         {office.ftd_balance > 0 ? "+" : ""}
         {number(office.ftd_balance)}
       </td>
-      <td className="px-3 py-2">
-        <input
-          type="number"
-          defaultValue={office.ftd_meta_mes}
-          onBlur={(e) => onUpdate({ ftd_meta_mes: Number(e.target.value) || 0 })}
-          className="w-full rounded px-1 py-0.5 text-sm outline-none"
-          style={inputStyle}
-        />
+      <td className="px-3 py-2" style={cellStyle}>
+        {number(office.ftd_meta_mes)}
       </td>
       <td className="px-3 py-2 text-right">
         <button onClick={onDelete} className="text-xs opacity-0 transition-opacity group-hover:opacity-100" style={{ color: "var(--critical)" }}>
