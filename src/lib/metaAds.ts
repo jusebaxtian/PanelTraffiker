@@ -39,6 +39,8 @@ export interface AdInsight {
 
 export interface Campaign {
   id: string;
+  account_id?: string;
+  name?: string;
   objective?: string;
   status?: string;
   effective_status?: string;
@@ -144,7 +146,7 @@ interface MetaCampaignsResponse {
 export async function fetchAccountCampaigns(adAccountId: string): Promise<Campaign[]> {
   const url = new URL(`${META_BASE_URL}/${adAccountId}/campaigns`);
   url.searchParams.set("access_token", getAccessToken());
-  url.searchParams.set("fields", "id,objective,status,effective_status,daily_budget");
+  url.searchParams.set("fields", "id,name,objective,status,effective_status,daily_budget");
   url.searchParams.set("limit", "500");
 
   const results: Campaign[] = [];
@@ -158,7 +160,7 @@ export async function fetchAccountCampaigns(adAccountId: string): Promise<Campai
       throw new Error(`Meta API error (${adAccountId}): ${json.error.message}`);
     }
 
-    results.push(...json.data);
+    results.push(...json.data.map((d) => ({ ...d, account_id: adAccountId })));
     nextUrl = json.paging?.next ?? null;
   }
 
