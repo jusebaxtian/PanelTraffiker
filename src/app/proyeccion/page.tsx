@@ -172,7 +172,6 @@ export default function ProyeccionPage() {
   }
 
   async function deleteOffice(id: string) {
-    if (!window.confirm("¿Eliminar esta oficina de la proyección? Esta acción no se puede deshacer.")) return;
     setOffices((prev) => prev.filter((o) => o.id !== id));
     await fetch(`/api/proyeccion/offices/${id}`, { method: "DELETE" });
   }
@@ -522,11 +521,44 @@ function OfficeRow({
         {number(office.ftd_meta_mes)}
       </td>
       <td className="px-3 py-2 text-right">
-        <button onClick={onDelete} className="text-xs opacity-0 transition-opacity group-hover:opacity-100" style={{ color: "var(--critical)" }}>
-          ✕
-        </button>
+        <DeleteButton onConfirm={onDelete} />
       </td>
     </tr>
+  );
+}
+
+function DeleteButton({ onConfirm }: { onConfirm: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+
+  useEffect(() => {
+    if (!confirming) return;
+    const timer = setTimeout(() => setConfirming(false), 4000);
+    return () => clearTimeout(timer);
+  }, [confirming]);
+
+  if (confirming) {
+    return (
+      <button
+        onClick={() => {
+          setConfirming(false);
+          onConfirm();
+        }}
+        className="whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-medium"
+        style={{ background: "var(--critical)", color: "#ffffff" }}
+      >
+        ¿Eliminar?
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setConfirming(true)}
+      className="text-xs opacity-0 transition-opacity group-hover:opacity-100"
+      style={{ color: "var(--critical)" }}
+    >
+      ✕
+    </button>
   );
 }
 
