@@ -11,11 +11,20 @@ interface AgentRow {
   custom_value: number | null;
 }
 
-function monthRange() {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-  return { start, end };
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+// El rango debe corresponder al mes seleccionado (month_key = "YYYY-MM"),
+// no siempre al mes calendario actual, para que tanto el gasto de Meta
+// como los leads de GHL correspondan al mes que se está viendo.
+function monthRange(monthKey: string) {
+  const [year, month] = monthKey.split("-").map(Number);
+  const start = new Date(year, month - 1, 1);
+  const end = new Date(year, month, 0, 23, 59, 59);
+  const since = `${year}-${pad2(month)}-01`;
+  const until = `${year}-${pad2(month)}-${pad2(end.getDate())}`;
+  return { start, end, since, until };
 }
 
 function rowToOffice(row: {
@@ -67,10 +76,13 @@ export async function GET(request: NextRequest) {
   if (officesError) {
     return NextResponse.json({ error: officesError.message }, { status: 500 });
   }
+  if (!config) {
+    return NextResponse.json({ error: "Mes no encontrado" }, { status: 404 });
+  }
 
-  const diasFaltantes = config?.days_remaining ?? 0;
-  const costoFtdMes = config?.costo_ftd_mes ?? 0;
-  const { start, end } = monthRange();
+  const diasFaltantes = config.days_remaining ?? 0;
+  const costoFtdMes = config.costo_ftd_mes ?? 0;
+  const { start, end, since, until } = monthRange(config.month_key);
 
   // $ Diario se toma del valor TOTAL de la oficina en Distribución
   // (suma de sus agentes), no del monto de admin.
@@ -83,7 +95,7 @@ export async function GET(request: NextRequest) {
 
   let insights: Awaited<ReturnType<typeof fetchAllAccountsInsights>> = [];
   try {
-    insights = await fetchAllAccountsInsights({ datePreset: "this_month", level: "campaign" });
+    insights = await fetchAllAccountsInsights({ timeRange: { since, until }, level: "campaign" });
   } catch {
     insights = [];
   }

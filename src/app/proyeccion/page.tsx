@@ -225,17 +225,6 @@ export default function ProyeccionPage() {
               </select>
             </label>
             <label className="flex items-center gap-2 text-sm">
-              <span style={{ color: "var(--text-muted)" }}>Nombre del mes</span>
-              <input
-                key={config.id}
-                type="text"
-                defaultValue={config.month_label}
-                onBlur={(e) => saveConfig({ month_label: e.target.value })}
-                className="w-36 rounded-md px-2 py-1 text-sm outline-none"
-                style={{ background: "var(--page)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
-              />
-            </label>
-            <label className="flex items-center gap-2 text-sm">
               <span style={{ color: "var(--series-3)", fontWeight: 600 }}>Días faltantes</span>
               <input
                 key={config.id}
@@ -247,7 +236,7 @@ export default function ProyeccionPage() {
               />
             </label>
             <label className="flex items-center gap-2 text-sm">
-              <span style={{ color: "var(--good)", fontWeight: 600 }}>Costo FTD del mes</span>
+              <span style={{ color: "var(--good)", fontWeight: 600 }}>$ FTD</span>
               <input
                 key={config.id}
                 type="number"

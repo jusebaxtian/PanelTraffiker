@@ -6,6 +6,14 @@ export interface ProyeccionConfig {
   costo_ftd_mes: number;
 }
 
+// El nombre del mes se deriva siempre de month_key ("YYYY-MM"), ya no es
+// un campo editable manualmente.
+export function monthLabel(monthKey: string): string {
+  const [year, month] = monthKey.split("-").map(Number);
+  const label = new Date(year, month - 1, 1).toLocaleDateString("es-CO", { month: "long", year: "numeric" });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 export interface CampaignRef {
   account_id: string;
   campaign_id: string;
