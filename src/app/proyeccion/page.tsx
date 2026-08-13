@@ -55,6 +55,7 @@ export default function ProyeccionPage() {
   const [campaignPickerForId, setCampaignPickerForId] = useState<string | null>(null);
   const [officePickerForId, setOfficePickerForId] = useState<string | null>(null);
   const [crmPickerForId, setCrmPickerForId] = useState<string | null>(null);
+  const [cacheInfo, setCacheInfo] = useState<{ updatedAt: string; forceRemaining: number; nextWindowAt: string } | null>(null);
 
   function loadConfig(monthKey: string) {
     return fetch(`/api/proyeccion/config/${monthKey}`)
@@ -65,15 +66,17 @@ export default function ProyeccionPage() {
       });
   }
 
-  function loadOffices(configId: string, silent = false) {
+  function loadOffices(configId: string, silent = false, force = false) {
     if (!silent) setLoading(true);
     else setRefreshing(true);
-    fetch(`/api/proyeccion/offices?config_id=${configId}`)
+    const url = `/api/proyeccion/offices?config_id=${configId}${force ? "&force=1" : ""}`;
+    fetch(url)
       .then((res) => res.json())
       .then((json) => {
         if (json.error) setError(json.error);
         else {
           setOffices(json.data);
+          setCacheInfo(json.cache ?? null);
           setError(null);
         }
       })
@@ -128,7 +131,7 @@ export default function ProyeccionPage() {
   }, []);
 
   function refresh() {
-    if (config) loadOffices(config.id, true);
+    if (config) loadOffices(config.id, true, true);
   }
 
   async function saveConfig(updates: Partial<Config>) {
@@ -278,12 +281,18 @@ export default function ProyeccionPage() {
           </button>
           <button
             onClick={refresh}
-            disabled={refreshing}
+            disabled={refreshing || (cacheInfo?.forceRemaining ?? 1) <= 0}
+            title={
+              (cacheInfo?.forceRemaining ?? 1) <= 0
+                ? "Ya usaste las actualizaciones manuales disponibles — espera a que se renueve el caché (cada 5 min)"
+                : undefined
+            }
             className="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
             style={{ background: "var(--surface)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
           >
             {refreshing ? "Actualizando..." : "↻ Actualizar"}
           </button>
+          {cacheInfo && <CacheStatus cacheInfo={cacheInfo} />}
         </div>
 
         {loading && <p style={{ color: "var(--text-secondary)" }}>Cargando...</p>}
@@ -562,6 +571,24 @@ function DeleteButton({ onConfirm }: { onConfirm: () => void }) {
     >
       ✕
     </button>
+  );
+}
+
+function CacheStatus({ cacheInfo }: { cacheInfo: { updatedAt: string; forceRemaining: number } }) {
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => setTick((t) => t + 1), 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const secondsAgo = Math.max(0, Math.round((Date.now() - new Date(cacheInfo.updatedAt).getTime()) / 1000));
+  const agoLabel = secondsAgo < 60 ? `hace ${secondsAgo}s` : `hace ${Math.round(secondsAgo / 60)} min`;
+
+  return (
+    <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+      Datos {agoLabel} · {Math.max(0, cacheInfo.forceRemaining)} actualizaciones manuales disponibles
+    </span>
   );
 }
 
