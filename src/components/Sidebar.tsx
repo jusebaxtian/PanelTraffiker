@@ -8,9 +8,10 @@ const NAV_ITEMS = [
   { label: "Dashboard", href: "/" },
   { label: "Gráficos", href: "/graficos" },
   { label: "Reporte Diario", href: "/reporte-diario" },
-  { label: "Proyección", href: "/proyeccion" },
   { label: "Distribución", href: "/distribucion" },
+  { label: "Proyección", href: "/proyeccion" },
   { label: "Status API", href: "/status-api" },
+  { label: "Usuarios", href: "/usuarios" },
 ] as const;
 
 export default function Sidebar() {
