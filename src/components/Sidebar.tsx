@@ -6,10 +6,10 @@ import { useEffect, useState } from "react";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/" },
-  { label: "Gráficos", href: "/graficos" },
   { label: "Reporte Diario", href: "/reporte-diario" },
   { label: "Distribución", href: "/distribucion" },
   { label: "Proyección", href: "/proyeccion" },
+  { label: "Gráficos", href: "/graficos" },
   { label: "Status API", href: "/status-api" },
   { label: "Usuarios", href: "/usuarios" },
 ] as const;
