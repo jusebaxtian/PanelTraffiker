@@ -53,7 +53,7 @@ export async function countContactsByTagInMonth(
     let hitOlderThanMonth = false;
     for (const c of contacts) {
       const created = new Date(c.dateAdded);
-      if (created >= monthStart && created <= monthEnd) {
+      if (created >= monthStart && created < monthEnd) {
         count++;
       } else if (created < monthStart) {
         hitOlderThanMonth = true;

@@ -15,15 +15,24 @@ function pad2(n: number) {
   return String(n).padStart(2, "0");
 }
 
+// Bogotá no tiene horario de verano (siempre UTC-5). El servidor corre en
+// UTC, así que si se comparan fechas con los límites del mes en UTC "a
+// secas" quedan corridas ~5 horas respecto a lo que el usuario ve en el
+// CRM (que filtra en su hora local) — eso inflaba el conteo de leads.
+const BOGOTA_UTC_OFFSET_MS = 5 * 60 * 60 * 1000;
+
 // El rango debe corresponder al mes seleccionado (month_key = "YYYY-MM"),
-// no siempre al mes calendario actual, para que tanto el gasto de Meta
-// como los leads de GHL correspondan al mes que se está viendo.
+// alineado a la hora de Bogotá, y no ir más allá de "ahora" para que los
+// datos sean siempre los reales hasta el momento (en vivo).
 function monthRange(monthKey: string) {
   const [year, month] = monthKey.split("-").map(Number);
-  const start = new Date(year, month - 1, 1);
-  const end = new Date(year, month, 0, 23, 59, 59);
+  const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0) + BOGOTA_UTC_OFFSET_MS);
+  const monthEndBoundary = new Date(Date.UTC(year, month, 1, 0, 0, 0) + BOGOTA_UTC_OFFSET_MS);
+  const now = new Date();
+  const end = monthEndBoundary < now ? monthEndBoundary : now;
+  const lastDay = new Date(year, month, 0).getDate();
   const since = `${year}-${pad2(month)}-01`;
-  const until = `${year}-${pad2(month)}-${pad2(end.getDate())}`;
+  const until = `${year}-${pad2(month)}-${pad2(lastDay)}`;
   return { start, end, since, until };
 }
 
