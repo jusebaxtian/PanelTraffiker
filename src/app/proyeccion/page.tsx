@@ -306,7 +306,6 @@ export default function ProyeccionPage() {
                   <col style={{ width: 190 }} />
                   <col style={{ width: 170 }} />
                   <col style={{ width: 130 }} />
-                  <col style={{ width: 130 }} />
                   <col style={{ width: 140 }} />
                   <col style={{ width: 170 }} />
                   <col style={{ width: 110 }} />
@@ -323,7 +322,6 @@ export default function ProyeccionPage() {
                     {[
                       "Asignación / Campañas",
                       "Oficina (Distribución)",
-                      "Gasto",
                       "Gasto Total Hoy",
                       "Proyección Cierre",
                       "Gasto Proyección",
@@ -364,7 +362,7 @@ export default function ProyeccionPage() {
                   ))}
                   {offices.length === 0 && (
                     <tr>
-                      <td colSpan={15} className="px-4 py-6 text-center" style={{ color: "var(--text-muted)" }}>
+                      <td colSpan={14} className="px-4 py-6 text-center" style={{ color: "var(--text-muted)" }}>
                         No hay oficinas en la proyección todavía.
                       </td>
                     </tr>
@@ -472,9 +470,6 @@ function OfficeRow({
         <div className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
           $ Diario: <span style={{ color: "var(--text-primary)" }}>{currency(office.diario)}</span>
         </div>
-      </td>
-      <td className="px-3 py-2" style={cellStyle}>
-        {currency(office.gasto)}
       </td>
       <td className="px-3 py-2 font-medium" style={{ ...cellStyle, color: "var(--text-primary)" }}>
         {currency(office.gasto_total_hoy)}
