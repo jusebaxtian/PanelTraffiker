@@ -403,6 +403,9 @@ export default function ProyeccionPage() {
           selectedTag={offices.find((o) => o.id === crmPickerForId)?.ghl_tag ?? null}
           onClose={() => setCrmPickerForId(null)}
           onConnectionCreated={(connection) => setCrmConnections((prev) => [...prev, connection])}
+          onConnectionUpdated={(connection) =>
+            setCrmConnections((prev) => prev.map((c) => (c.id === connection.id ? connection : c)))
+          }
           onSave={(crm_connection_id, ghl_tag) => {
             updateOffice(crmPickerForId, { crm_connection_id, ghl_tag });
             setCrmPickerForId(null);

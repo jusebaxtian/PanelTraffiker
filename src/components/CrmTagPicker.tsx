@@ -15,6 +15,7 @@ export default function CrmTagPicker({
   onSave,
   onClose,
   onConnectionCreated,
+  onConnectionUpdated,
 }: {
   connections: CrmConnection[];
   selectedConnectionId: string | null;
@@ -22,6 +23,7 @@ export default function CrmTagPicker({
   onSave: (connectionId: string | null, tag: string | null) => void;
   onClose: () => void;
   onConnectionCreated: (connection: CrmConnection) => void;
+  onConnectionUpdated: (connection: CrmConnection) => void;
 }) {
   const [connectionId, setConnectionId] = useState<string | null>(selectedConnectionId);
   const [tags, setTags] = useState<string[]>([]);
@@ -36,6 +38,14 @@ export default function CrmTagPicker({
   const [newToken, setNewToken] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editLocationId, setEditLocationId] = useState("");
+  const [editToken, setEditToken] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [tagsRefreshKey, setTagsRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!connectionId) {
@@ -52,7 +62,7 @@ export default function CrmTagPicker({
       })
       .catch((err) => setTagsError(err.message))
       .finally(() => setLoadingTags(false));
-  }, [connectionId]);
+  }, [connectionId, tagsRefreshKey]);
 
   const filteredTags = useMemo(() => {
     if (!search.trim()) return tags;
@@ -85,6 +95,39 @@ export default function CrmTagPicker({
     setNewToken("");
   }
 
+  function startEdit(c: CrmConnection) {
+    setEditingId(c.id);
+    setEditName(c.name);
+    setEditLocationId(c.location_id);
+    setEditToken("");
+    setEditError(null);
+  }
+
+  async function saveEdit() {
+    if (!editingId || !editName.trim() || !editLocationId.trim()) return;
+    setSaving(true);
+    setEditError(null);
+    const body: Record<string, string> = { name: editName.trim(), location_id: editLocationId.trim() };
+    if (editToken.trim()) body.access_token = editToken.trim();
+    const res = await fetch(`/api/proyeccion/crm-connections/${editingId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json();
+    setSaving(false);
+    if (json.error) {
+      setEditError(json.error);
+      return;
+    }
+    onConnectionUpdated(json.data);
+    setEditingId(null);
+    if (connectionId === json.data.id) {
+      // Cambiar credenciales invalida la lista de etiquetas cacheada.
+      setTagsRefreshKey((k) => k + 1);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }} onClick={onClose}>
       <div
@@ -106,25 +149,71 @@ export default function CrmTagPicker({
             ¿Cuál CRM / token debe extraer la información?
           </p>
           {connections.map((c) => (
-            <label
-              key={c.id}
-              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              <input
-                type="radio"
-                name="connection"
-                checked={connectionId === c.id}
-                onChange={() => {
-                  setConnectionId(c.id);
-                  setPickedTag(null);
-                }}
-              />
-              <span style={{ color: "var(--text-primary)" }}>{c.name}</span>
-              <span className="ml-auto shrink-0 text-xs" style={{ color: "var(--text-muted)" }}>
-                {c.location_id}
-              </span>
-            </label>
+            <div key={c.id}>
+              <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm" style={{ color: "var(--text-secondary)" }}>
+                <input
+                  type="radio"
+                  name="connection"
+                  checked={connectionId === c.id}
+                  onChange={() => {
+                    setConnectionId(c.id);
+                    setPickedTag(null);
+                  }}
+                />
+                <span style={{ color: "var(--text-primary)" }}>{c.name}</span>
+                <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                  {c.location_id}
+                </span>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    editingId === c.id ? setEditingId(null) : startEdit(c);
+                  }}
+                  className="ml-auto shrink-0 text-xs"
+                  style={{ color: "var(--brand)" }}
+                >
+                  {editingId === c.id ? "cerrar" : "editar ✎"}
+                </button>
+              </label>
+
+              {editingId === c.id && (
+                <div className="mb-1 ml-6 space-y-2 rounded-md p-2" style={{ background: "var(--page)", border: "1px solid var(--border)" }}>
+                  <input
+                    type="text"
+                    placeholder="Nombre"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full rounded-md px-2 py-1.5 text-sm outline-none"
+                    style={{ background: "var(--surface)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Location ID"
+                    value={editLocationId}
+                    onChange={(e) => setEditLocationId(e.target.value)}
+                    className="w-full rounded-md px-2 py-1.5 text-sm outline-none"
+                    style={{ background: "var(--surface)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+                  />
+                  <input
+                    type="password"
+                    placeholder="Nuevo token (dejar en blanco para no cambiarlo)"
+                    value={editToken}
+                    onChange={(e) => setEditToken(e.target.value)}
+                    className="w-full rounded-md px-2 py-1.5 text-sm outline-none"
+                    style={{ background: "var(--surface)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+                  />
+                  {editError && <p className="text-xs" style={{ color: "var(--critical)" }}>{editError}</p>}
+                  <button
+                    onClick={saveEdit}
+                    disabled={saving || !editName.trim() || !editLocationId.trim()}
+                    className="rounded-md px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+                    style={{ background: "var(--brand)", color: "#ffffff" }}
+                  >
+                    {saving ? "Guardando..." : "Guardar cambios"}
+                  </button>
+                </div>
+              )}
+            </div>
           ))}
 
           <button
