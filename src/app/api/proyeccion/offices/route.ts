@@ -32,7 +32,7 @@ function monthRange(monthKey: string) {
   return { start, end, since, until };
 }
 
-const CACHE_TTL_MS = 5 * 60 * 1000;
+const CACHE_TTL_MS = 10 * 60 * 1000;
 const MAX_FORCE_REFRESHES_PER_WINDOW = 2;
 
 interface CacheRow {
@@ -118,12 +118,12 @@ export async function GET(request: NextRequest) {
   );
 
   // El gasto de Meta y los leads de GHL se guardan en caché por mes
-  // (proyeccion_metrics_cache) durante 5 minutos, para no consultar esas
+  // (proyeccion_metrics_cache) durante 10 minutos, para no consultar esas
   // APIs en cada carga de página ni en cada edición de un campo — así se
   // evita el riesgo de bloqueo por límite de tasa cuando entran varios
   // usuarios a la vez. El botón "Actualizar" puede forzar hasta 2
   // consultas frescas dentro de esa ventana; a la tercera debe esperar a
-  // que la ventana de 5 minutos se renueve sola.
+  // que la ventana de 10 minutos se renueve sola.
   const now = Date.now();
   const windowAgeMs = cache ? now - new Date(cache.window_started_at).getTime() : Infinity;
   const windowExpired = windowAgeMs >= CACHE_TTL_MS;

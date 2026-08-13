@@ -284,7 +284,7 @@ export default function ProyeccionPage() {
             disabled={refreshing || (cacheInfo?.forceRemaining ?? 1) <= 0}
             title={
               (cacheInfo?.forceRemaining ?? 1) <= 0
-                ? "Ya usaste las actualizaciones manuales disponibles — espera a que se renueve el caché (cada 5 min)"
+                ? "Ya usaste las actualizaciones manuales disponibles — espera a que se renueve el caché (cada 10 min)"
                 : undefined
             }
             className="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
