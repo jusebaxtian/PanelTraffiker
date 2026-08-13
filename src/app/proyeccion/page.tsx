@@ -319,7 +319,6 @@ export default function ProyeccionPage() {
                   <col style={{ width: 110 }} />
                   <col style={{ width: 130 }} />
                   <col style={{ width: 110 }} />
-                  <col style={{ width: 110 }} />
                   <col style={{ width: 130 }} />
                   <col style={{ width: 110 }} />
                   <col style={{ width: 110 }} />
@@ -335,7 +334,6 @@ export default function ProyeccionPage() {
                       "Gasto Proyección",
                       "Leads/CRM (etiqueta GHL)",
                       "Costo x Lead",
-                      "Total Mes",
                       "FTD Estimado",
                       "FTDs Real",
                       "Costo FTD Actual",
@@ -370,7 +368,7 @@ export default function ProyeccionPage() {
                   ))}
                   {offices.length === 0 && (
                     <tr>
-                      <td colSpan={14} className="px-4 py-6 text-center" style={{ color: "var(--text-muted)" }}>
+                      <td colSpan={13} className="px-4 py-6 text-center" style={{ color: "var(--text-muted)" }}>
                         No hay oficinas en la proyección todavía.
                       </td>
                     </tr>
@@ -503,9 +501,6 @@ function OfficeRow({
       </td>
       <td className="px-3 py-2" style={cellStyle}>
         {currency(office.costo_x_resultado)}
-      </td>
-      <td className="px-3 py-2 font-medium" style={{ ...cellStyle, color: "var(--text-primary)" }}>
-        {currency(office.total_mes)}
       </td>
       <td className="px-3 py-2" style={cellStyle}>
         {number(office.ftd_estimado)}
