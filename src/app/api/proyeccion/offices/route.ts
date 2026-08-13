@@ -4,6 +4,7 @@ import { fetchAllAccountsInsights } from "@/lib/metaAds";
 import { countContactsByTagInMonth } from "@/lib/ghl";
 import { computeOffice, type CampaignRef, type ProyeccionOffice } from "@/lib/proyeccion";
 import { officeTotal } from "@/lib/distribucion";
+import { BOGOTA_UTC_OFFSET_MS } from "@/lib/bogota";
 
 interface AgentRow {
   office_id: string;
@@ -15,15 +16,10 @@ function pad2(n: number) {
   return String(n).padStart(2, "0");
 }
 
-// Bogotá no tiene horario de verano (siempre UTC-5). El servidor corre en
-// UTC, así que si se comparan fechas con los límites del mes en UTC "a
-// secas" quedan corridas ~5 horas respecto a lo que el usuario ve en el
-// CRM (que filtra en su hora local) — eso inflaba el conteo de leads.
-const BOGOTA_UTC_OFFSET_MS = 5 * 60 * 60 * 1000;
-
 // El rango debe corresponder al mes seleccionado (month_key = "YYYY-MM"),
-// alineado a la hora de Bogotá, y no ir más allá de "ahora" para que los
-// datos sean siempre los reales hasta el momento (en vivo).
+// alineado a la hora legal de Colombia (Bogotá, UTC-5 sin horario de
+// verano), y no ir más allá de "ahora" para que los datos sean siempre
+// los reales hasta el momento (en vivo).
 function monthRange(monthKey: string) {
   const [year, month] = monthKey.split("-").map(Number);
   const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0) + BOGOTA_UTC_OFFSET_MS);

@@ -8,6 +8,7 @@ import AgentTypePieChart from "@/components/AgentTypePieChart";
 import OfficeBudgetPieChart from "@/components/OfficeBudgetPieChart";
 import { officeTotal, type Office } from "@/lib/distribucion";
 import { fmtDate, getCurrentRange, getPreviousRange } from "@/lib/dateRanges";
+import { bogotaNowClient } from "@/lib/bogota";
 
 function currency(n: number) {
   return n.toLocaleString("es-CO", {
@@ -84,7 +85,7 @@ export default function GraficosPage() {
   }, [datePreset, customRange]);
 
   const currentRange = useMemo(
-    () => getCurrentRange(datePreset, customRange, new Date()),
+    () => getCurrentRange(datePreset, customRange, bogotaNowClient()),
     [datePreset, customRange]
   );
   const previousRange = useMemo(

@@ -1,18 +1,15 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { monthLabel } from "@/lib/proyeccion";
-
-function currentMonthKey(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-}
+import { bogotaMonthKey } from "@/lib/bogota";
 
 // Lista los meses ya creados y garantiza que el mes calendario actual
-// exista (lo crea vacío si aún no se ha entrado a ese mes), para que al
-// pasar a septiembre u otro mes se arme automáticamente su propia tabla.
+// (según la hora legal de Colombia) exista, creándolo vacío si aún no se
+// ha entrado a ese mes, para que al pasar a septiembre u otro mes se
+// arme automáticamente su propia tabla justo a medianoche de Bogotá.
 export async function GET() {
   const supabase = supabaseServer();
-  const monthKey = currentMonthKey();
+  const monthKey = bogotaMonthKey();
 
   const { data: existing, error } = await supabase
     .from("proyeccion_config")
