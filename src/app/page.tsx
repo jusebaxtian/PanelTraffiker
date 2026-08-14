@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AdInsight } from "@/lib/metaAds";
-import { conversationsStarted } from "@/lib/metaAds";
+import { conversationsStarted, video3SecWatchRate, videoAvgTimeWatched } from "@/lib/metaAds";
 
 interface EnrichedInsight extends AdInsight {
   result: number;
@@ -58,15 +58,15 @@ const DATE_PRESETS = [
 const COLUMNS = [
   { key: "campaign", label: "Campaña", defaultWidth: 260 },
   { key: "status", label: "Estado", defaultWidth: 110 },
-  { key: "objective", label: "Objetivo", defaultWidth: 150 },
   { key: "result", label: "Resultado", defaultWidth: 110 },
   { key: "costPerResult", label: "Costo/resultado", defaultWidth: 140 },
   { key: "spend", label: "Gasto", defaultWidth: 120 },
-  { key: "dailyBudget", label: "Gasto diario", defaultWidth: 120 },
   { key: "todaySpend", label: "Gasto hoy", defaultWidth: 120 },
   { key: "ctr", label: "CTR", defaultWidth: 90 },
   { key: "frequency", label: "Frecuencia", defaultWidth: 100 },
   { key: "uniqueClicks", label: "Clics únicos", defaultWidth: 110 },
+  { key: "video3sRate", label: "% Reprod. 3s / impresiones", defaultWidth: 170 },
+  { key: "videoAvgTime", label: "Tiempo prom. reproducción", defaultWidth: 170 },
 ] as const;
 
 const COLUMN_WIDTHS_STORAGE_KEY = "paneltraffiker.columnWidths";
@@ -382,9 +382,6 @@ export default function Home() {
                               {humanize(row.status)}
                             </span>
                           </td>
-                          <td className="overflow-hidden truncate px-4 py-3" style={{ color: "var(--text-secondary)" }}>
-                            {humanize(row.objective)}
-                          </td>
                           <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
                             {number(row.result)}
                           </td>
@@ -393,9 +390,6 @@ export default function Home() {
                           </td>
                           <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
                             {currency(Number(row.spend ?? 0))}
-                          </td>
-                          <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
-                            {row.daily_budget ? currency(Number(row.daily_budget)) : "-"}
                           </td>
                           <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
                             {currency(row.today_spend)}
@@ -408,6 +402,12 @@ export default function Home() {
                           </td>
                           <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
                             {number(Number(row.unique_clicks ?? 0))}
+                          </td>
+                          <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+                            {video3SecWatchRate(row).toFixed(2)}%
+                          </td>
+                          <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+                            {videoAvgTimeWatched(row).toFixed(1)}s
                           </td>
                         </tr>
                       );

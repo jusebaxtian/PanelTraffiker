@@ -33,6 +33,7 @@ export interface AdInsight {
   unique_clicks?: string;
   actions?: ActionValue[];
   cost_per_action_type?: ActionValue[];
+  video_avg_time_watched_actions?: ActionValue[];
   date_start?: string;
   date_stop?: string;
 }
@@ -66,6 +67,32 @@ export function conversationsStarted(insight: AdInsight): number {
   return 0;
 }
 
+function firstActionValue(actions: ActionValue[] | undefined): number {
+  if (!actions || actions.length === 0) return 0;
+  return Number(actions[0].value ?? 0);
+}
+
+// Las reproducciones de video de 3 segundos se reportan dentro del
+// arreglo estándar "actions" con action_type "video_view" (no es un
+// campo aparte en la API de Meta).
+export function video3SecWatched(insight: AdInsight): number {
+  if (!insight.actions) return 0;
+  const action = insight.actions.find((a) => a.action_type === "video_view");
+  return Number(action?.value ?? 0);
+}
+
+// Porcentaje de reproducciones de video de 3s sobre las impresiones.
+export function video3SecWatchRate(insight: AdInsight): number {
+  const impressions = Number(insight.impressions ?? 0);
+  if (impressions <= 0) return 0;
+  return (video3SecWatched(insight) / impressions) * 100;
+}
+
+// Tiempo promedio de reproducción del video, en segundos.
+export function videoAvgTimeWatched(insight: AdInsight): number {
+  return firstActionValue(insight.video_avg_time_watched_actions);
+}
+
 interface MetaInsightsResponse {
   data: AdInsight[];
   paging?: { next?: string };
@@ -86,6 +113,7 @@ const DEFAULT_FIELDS = [
   "unique_clicks",
   "actions",
   "cost_per_action_type",
+  "video_avg_time_watched_actions",
 ].join(",");
 
 export interface TimeRange {
