@@ -235,7 +235,6 @@ export default function ProyeccionPage() {
                 type="number"
                 defaultValue={config.days_remaining}
                 onBlur={(e) => saveConfig({ days_remaining: Number(e.target.value) || 0 })}
-                disabled={!isSuperAdmin}
                 className="w-20 rounded-md px-2 py-1 text-sm font-semibold outline-none disabled:opacity-50"
                 style={{ background: "var(--page)", color: "var(--series-3)", border: "1px solid var(--border)" }}
               />
@@ -247,7 +246,6 @@ export default function ProyeccionPage() {
                 type="number"
                 defaultValue={config.costo_ftd_mes}
                 onBlur={(e) => saveConfig({ costo_ftd_mes: Number(e.target.value) || 0 })}
-                disabled={!isSuperAdmin}
                 className="w-32 rounded-md px-2 py-1 text-sm font-semibold outline-none disabled:opacity-50"
                 style={{ background: "var(--page)", color: "var(--good)", border: "1px solid var(--border)" }}
               />

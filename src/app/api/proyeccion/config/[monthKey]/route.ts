@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { monthLabel } from "@/lib/proyeccion";
-import { requireWriteAccess } from "@/lib/auth";
+import { requireModuleWriteAccess } from "@/lib/auth";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ monthKey: string }> }) {
   const { monthKey } = await params;
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ monthKey: string }> }) {
-  const auth = await requireWriteAccess();
+  const auth = await requireModuleWriteAccess("proyeccion");
   if ("error" in auth) return auth.error;
 
   const { monthKey } = await params;

@@ -60,12 +60,24 @@ export async function requireSuperAdmin(): Promise<AuthResult> {
 }
 
 // El rol admin es de solo lectura en toda la app, salvo el campo FTDs
-// Real de Proyección — cualquier otra escritura queda bloqueada aquí.
+// Real y la configuración (Días faltantes, $ FTD) de Proyección —
+// cualquier otra escritura queda bloqueada aquí.
 export async function requireWriteAccess(): Promise<AuthResult> {
   const result = await requireUser();
   if ("error" in result) return result;
   if (result.user.role !== "superadmin") {
     return { error: NextResponse.json({ error: "Tu rol solo tiene acceso de lectura" }, { status: 403 }) };
+  }
+  return result;
+}
+
+// Permite escribir a SuperAdmin siempre, y a Admin solo si tiene
+// permiso de ver ese módulo (ej. la config de Proyección).
+export async function requireModuleWriteAccess(moduleKey: ModuleKey): Promise<AuthResult> {
+  const result = await requireUser();
+  if ("error" in result) return result;
+  if (result.user.role !== "superadmin" && !result.user.module_permissions.includes(moduleKey)) {
+    return { error: NextResponse.json({ error: "No tienes acceso a este módulo" }, { status: 403 }) };
   }
   return result;
 }
