@@ -24,13 +24,25 @@ export default function CampaignPicker({
   const [search, setSearch] = useState("");
   const [picked, setPicked] = useState<Set<string>>(new Set(selected.map((c) => c.campaign_id)));
 
-  useEffect(() => {
-    fetch("/api/proyeccion/campaigns")
+  const [showNewAccount, setShowNewAccount] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newAccountId, setNewAccountId] = useState("");
+  const [newToken, setNewToken] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  function loadCampaigns() {
+    setLoading(true);
+    return fetch("/api/proyeccion/campaigns")
       .then((res) => res.json())
       .then((json) => {
         if (!json.error) setAll(json.data);
       })
       .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    loadCampaigns();
   }, []);
 
   const filtered = useMemo(() => {
@@ -55,10 +67,32 @@ export default function CampaignPicker({
     onSave(campaigns);
   }
 
+  async function createAccount() {
+    if (!newName.trim() || !newAccountId.trim() || !newToken.trim()) return;
+    setCreating(true);
+    setCreateError(null);
+    const res = await fetch("/api/meta-ad-accounts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newName.trim(), account_id: newAccountId.trim(), access_token: newToken.trim() }),
+    });
+    const json = await res.json();
+    setCreating(false);
+    if (json.error) {
+      setCreateError(json.error);
+      return;
+    }
+    setShowNewAccount(false);
+    setNewName("");
+    setNewAccountId("");
+    setNewToken("");
+    loadCampaigns();
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }} onClick={onClose}>
       <div
-        className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-lg p-4"
+        className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-lg p-4"
         style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -70,6 +104,53 @@ export default function CampaignPicker({
             ✕
           </button>
         </div>
+
+        <button
+          onClick={() => setShowNewAccount((v) => !v)}
+          className="mb-3 block text-left text-xs"
+          style={{ color: "var(--brand)" }}
+        >
+          {showNewAccount ? "Cancelar nueva cuenta" : "+ Agregar cuenta publicitaria"}
+        </button>
+
+        {showNewAccount && (
+          <div className="mb-3 space-y-2 rounded-md p-2" style={{ background: "var(--page)", border: "1px solid var(--border)" }}>
+            <input
+              type="text"
+              placeholder="Nombre (ej. Cuenta Elite)"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              className="w-full rounded-md px-2 py-1.5 text-sm outline-none"
+              style={{ background: "var(--surface)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+            />
+            <input
+              type="text"
+              placeholder="Account ID (ej. act_123456789 o solo el número)"
+              value={newAccountId}
+              onChange={(e) => setNewAccountId(e.target.value)}
+              className="w-full rounded-md px-2 py-1.5 text-sm outline-none"
+              style={{ background: "var(--surface)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+            />
+            <input
+              type="password"
+              placeholder="Access Token de Meta"
+              value={newToken}
+              onChange={(e) => setNewToken(e.target.value)}
+              className="w-full rounded-md px-2 py-1.5 text-sm outline-none"
+              style={{ background: "var(--surface)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+            />
+            {createError && <p className="text-xs" style={{ color: "var(--critical)" }}>{createError}</p>}
+            <button
+              onClick={createAccount}
+              disabled={creating || !newName.trim() || !newAccountId.trim() || !newToken.trim()}
+              className="rounded-md px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+              style={{ background: "var(--brand)", color: "#ffffff" }}
+            >
+              {creating ? "Guardando..." : "Guardar cuenta"}
+            </button>
+          </div>
+        )}
+
         <input
           type="text"
           placeholder="Buscar campaña..."

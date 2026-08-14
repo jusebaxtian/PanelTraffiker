@@ -1,16 +1,34 @@
+import { supabaseServer } from "@/lib/supabaseServer";
+
 const META_API_VERSION = "v21.0";
 const META_BASE_URL = `https://graph.facebook.com/${META_API_VERSION}`;
 
-function getAccessToken(): string {
-  const token = process.env.META_ACCESS_TOKEN;
-  if (!token) throw new Error("META_ACCESS_TOKEN no está configurado");
-  return token;
+export interface AdAccountConnection {
+  accountId: string;
+  accessToken: string;
 }
 
-export function getAdAccountIds(): string[] {
-  const ids = process.env.META_AD_ACCOUNT_IDS;
-  if (!ids) throw new Error("META_AD_ACCOUNT_IDS no está configurado");
-  return ids.split(",").map((id) => id.trim());
+// Combina las cuentas configuradas por variables de entorno (token
+// compartido, legado) con las que el usuario agrega desde el panel
+// (nombre + Account ID + token propio, guardadas en meta_ad_accounts).
+export async function getAllAdAccountConnections(): Promise<AdAccountConnection[]> {
+  const envToken = process.env.META_ACCESS_TOKEN;
+  const envIds = (process.env.META_AD_ACCOUNT_IDS ?? "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+  const envAccounts: AdAccountConnection[] = envToken
+    ? envIds.map((accountId) => ({ accountId, accessToken: envToken }))
+    : [];
+
+  const supabase = supabaseServer();
+  const { data } = await supabase.from("meta_ad_accounts").select("account_id, access_token");
+  const dbAccounts: AdAccountConnection[] = (data ?? []).map((a: { account_id: string; access_token: string }) => ({
+    accountId: a.account_id,
+    accessToken: a.access_token,
+  }));
+
+  return [...envAccounts, ...dbAccounts];
 }
 
 export interface ActionValue {
@@ -123,11 +141,12 @@ export interface TimeRange {
 
 export async function fetchAccountInsights(
   adAccountId: string,
+  accessToken: string,
   options: { datePreset?: string; timeRange?: TimeRange; level?: string } = {}
 ): Promise<AdInsight[]> {
   const { datePreset, timeRange, level = "campaign" } = options;
   const url = new URL(`${META_BASE_URL}/${adAccountId}/insights`);
-  url.searchParams.set("access_token", getAccessToken());
+  url.searchParams.set("access_token", accessToken);
   url.searchParams.set("fields", DEFAULT_FIELDS);
   if (timeRange) {
     url.searchParams.set("time_range", JSON.stringify(timeRange));
@@ -155,12 +174,16 @@ export async function fetchAccountInsights(
   return results;
 }
 
+// Una cuenta con token inválido no debe tumbar las demás: se atrapa el
+// error por cuenta y esa se omite en vez de fallar todo el batch.
 export async function fetchAllAccountsInsights(
   options: { datePreset?: string; timeRange?: TimeRange; level?: string } = {}
 ): Promise<AdInsight[]> {
-  const accountIds = getAdAccountIds();
+  const accounts = await getAllAdAccountConnections();
   const results = await Promise.all(
-    accountIds.map((id) => fetchAccountInsights(id, options))
+    accounts.map((a) =>
+      fetchAccountInsights(a.accountId, a.accessToken, options).catch(() => [] as AdInsight[])
+    )
   );
   return results.flat();
 }
@@ -171,9 +194,9 @@ interface MetaCampaignsResponse {
   error?: { message: string; type: string; code: number };
 }
 
-export async function fetchAccountCampaigns(adAccountId: string): Promise<Campaign[]> {
+export async function fetchAccountCampaigns(adAccountId: string, accessToken: string): Promise<Campaign[]> {
   const url = new URL(`${META_BASE_URL}/${adAccountId}/campaigns`);
-  url.searchParams.set("access_token", getAccessToken());
+  url.searchParams.set("access_token", accessToken);
   url.searchParams.set("fields", "id,name,objective,status,effective_status,daily_budget");
   url.searchParams.set("limit", "500");
 
@@ -196,7 +219,9 @@ export async function fetchAccountCampaigns(adAccountId: string): Promise<Campai
 }
 
 export async function fetchAllAccountsCampaigns(): Promise<Campaign[]> {
-  const accountIds = getAdAccountIds();
-  const results = await Promise.all(accountIds.map((id) => fetchAccountCampaigns(id)));
+  const accounts = await getAllAdAccountConnections();
+  const results = await Promise.all(
+    accounts.map((a) => fetchAccountCampaigns(a.accountId, a.accessToken).catch(() => [] as Campaign[]))
+  );
   return results.flat();
 }
