@@ -6,6 +6,7 @@ import { officeTotal, type Agent } from "@/lib/distribucion";
 import CampaignPicker from "@/components/CampaignPicker";
 import OfficePicker from "@/components/OfficePicker";
 import CrmTagPicker from "@/components/CrmTagPicker";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 interface DistribucionOffice {
   id: string;
@@ -40,6 +41,7 @@ function visualDate(dateStr: string, yesterday: string) {
 }
 
 export default function ReporteDiarioPage() {
+  const { isSuperAdmin } = useCurrentUser();
   const [dates, setDates] = useState<string[]>([]);
   const [yesterday, setYesterday] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -208,23 +210,27 @@ export default function ReporteDiarioPage() {
         )}
 
         <div className="mb-6 flex flex-wrap items-center gap-2">
-          <input
-            type="text"
-            placeholder="Nombre de la campaña..."
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && createOffice()}
-            className="w-full max-w-full flex-1 rounded-lg px-3 py-2 text-sm outline-none sm:max-w-72 sm:flex-none"
-            style={{ background: "var(--surface)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
-          />
-          <button
-            onClick={createOffice}
-            disabled={!newName.trim()}
-            className="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
-            style={{ background: "var(--brand)", color: "#ffffff" }}
-          >
-            + Nueva campaña
-          </button>
+          {isSuperAdmin && (
+            <>
+              <input
+                type="text"
+                placeholder="Nombre de la campaña..."
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && createOffice()}
+                className="w-full max-w-full flex-1 rounded-lg px-3 py-2 text-sm outline-none sm:max-w-72 sm:flex-none"
+                style={{ background: "var(--surface)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+              />
+              <button
+                onClick={createOffice}
+                disabled={!newName.trim()}
+                className="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
+                style={{ background: "var(--brand)", color: "#ffffff" }}
+              >
+                + Nueva campaña
+              </button>
+            </>
+          )}
           <button
             onClick={refresh}
             disabled={refreshing}
@@ -247,7 +253,14 @@ export default function ReporteDiarioPage() {
         )}
 
         {!loading && (
-          <div className="overflow-hidden rounded-lg" style={{ border: "1px solid var(--border)", background: "var(--surface)" }}>
+          <div
+            className="overflow-hidden rounded-lg"
+            style={{
+              border: "1px solid var(--border)",
+              background: "var(--surface)",
+              ...(!isSuperAdmin ? { pointerEvents: "none" as const } : {}),
+            }}
+          >
             <div className="overflow-x-auto">
               <table className="text-left text-sm" style={{ tableLayout: "fixed", minWidth: 1200 }}>
                 <colgroup>

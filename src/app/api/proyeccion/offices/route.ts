@@ -5,6 +5,7 @@ import { countContactsByTagInMonth } from "@/lib/ghl";
 import { computeOffice, type CampaignRef, type ProyeccionOffice } from "@/lib/proyeccion";
 import { officeTotal } from "@/lib/distribucion";
 import { BOGOTA_UTC_OFFSET_MS } from "@/lib/bogota";
+import { requireWriteAccess } from "@/lib/auth";
 
 interface AgentRow {
   office_id: string;
@@ -209,6 +210,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireWriteAccess();
+  if ("error" in auth) return auth.error;
+
   const supabase = supabaseServer();
   const body = await request.json();
 

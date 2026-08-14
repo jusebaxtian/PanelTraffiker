@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { requireWriteAccess } from "@/lib/auth";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireWriteAccess();
+  if ("error" in auth) return auth.error;
+
   const { id: officeId } = await params;
   const supabase = supabaseServer();
   const body = await request.json();

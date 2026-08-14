@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Agent, Office } from "@/lib/distribucion";
 import { agentValue, officeTotal, JUNIOR_VALUE, EJECUTIVO_DEFAULT_VALUE } from "@/lib/distribucion";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 function currency(n: number) {
   return n.toLocaleString("es-CO", {
@@ -13,6 +14,7 @@ function currency(n: number) {
 }
 
 export default function DistribucionPage() {
+  const { isSuperAdmin } = useCurrentUser();
   const [offices, setOffices] = useState<Office[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -154,25 +156,27 @@ export default function DistribucionPage() {
           </div>
         )}
 
-        <div className="mb-8 flex flex-wrap items-center gap-2">
-          <input
-            type="text"
-            placeholder="Nombre de la nueva oficina..."
-            value={newOfficeName}
-            onChange={(e) => setNewOfficeName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && createOffice()}
-            className="w-full max-w-full flex-1 rounded-lg px-3 py-2 text-sm outline-none sm:max-w-72 sm:flex-none"
-            style={{ background: "var(--surface)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
-          />
-          <button
-            onClick={createOffice}
-            disabled={creatingOffice || !newOfficeName.trim()}
-            className="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
-            style={{ background: "var(--brand)", color: "#ffffff" }}
-          >
-            + Nueva oficina
-          </button>
-        </div>
+        {isSuperAdmin && (
+          <div className="mb-8 flex flex-wrap items-center gap-2">
+            <input
+              type="text"
+              placeholder="Nombre de la nueva oficina..."
+              value={newOfficeName}
+              onChange={(e) => setNewOfficeName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && createOffice()}
+              className="w-full max-w-full flex-1 rounded-lg px-3 py-2 text-sm outline-none sm:max-w-72 sm:flex-none"
+              style={{ background: "var(--surface)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+            />
+            <button
+              onClick={createOffice}
+              disabled={creatingOffice || !newOfficeName.trim()}
+              className="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
+              style={{ background: "var(--brand)", color: "#ffffff" }}
+            >
+              + Nueva oficina
+            </button>
+          </div>
+        )}
 
         {loading && <p style={{ color: "var(--text-secondary)" }}>Cargando...</p>}
 
@@ -186,7 +190,10 @@ export default function DistribucionPage() {
         )}
 
         {!loading && (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+          <div
+            className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3"
+            style={!isSuperAdmin ? { pointerEvents: "none", opacity: 0.75 } : undefined}
+          >
             {offices.map((office) => (
               <OfficeCard
                 key={office.id}

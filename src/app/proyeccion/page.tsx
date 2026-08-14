@@ -6,6 +6,7 @@ import { officeTotal, type Agent } from "@/lib/distribucion";
 import CampaignPicker from "@/components/CampaignPicker";
 import OfficePicker from "@/components/OfficePicker";
 import CrmTagPicker from "@/components/CrmTagPicker";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 interface Config {
   id: string;
@@ -42,6 +43,7 @@ function number(n: number) {
 }
 
 export default function ProyeccionPage() {
+  const { isSuperAdmin } = useCurrentUser();
   const [months, setMonths] = useState<MonthOption[]>([]);
   const [selectedMonthKey, setSelectedMonthKey] = useState<string | null>(null);
   const [config, setConfig] = useState<Config | null>(null);
@@ -233,7 +235,8 @@ export default function ProyeccionPage() {
                 type="number"
                 defaultValue={config.days_remaining}
                 onBlur={(e) => saveConfig({ days_remaining: Number(e.target.value) || 0 })}
-                className="w-20 rounded-md px-2 py-1 text-sm font-semibold outline-none"
+                disabled={!isSuperAdmin}
+                className="w-20 rounded-md px-2 py-1 text-sm font-semibold outline-none disabled:opacity-50"
                 style={{ background: "var(--page)", color: "var(--series-3)", border: "1px solid var(--border)" }}
               />
             </label>
@@ -244,7 +247,8 @@ export default function ProyeccionPage() {
                 type="number"
                 defaultValue={config.costo_ftd_mes}
                 onBlur={(e) => saveConfig({ costo_ftd_mes: Number(e.target.value) || 0 })}
-                className="w-32 rounded-md px-2 py-1 text-sm font-semibold outline-none"
+                disabled={!isSuperAdmin}
+                className="w-32 rounded-md px-2 py-1 text-sm font-semibold outline-none disabled:opacity-50"
                 style={{ background: "var(--page)", color: "var(--good)", border: "1px solid var(--border)" }}
               />
             </label>
@@ -262,23 +266,27 @@ export default function ProyeccionPage() {
         )}
 
         <div className="mb-6 flex flex-wrap items-center gap-2">
-          <input
-            type="text"
-            placeholder="Nombre de la nueva oficina..."
-            value={newOfficeName}
-            onChange={(e) => setNewOfficeName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && createOffice()}
-            className="w-full max-w-full flex-1 rounded-lg px-3 py-2 text-sm outline-none sm:max-w-72 sm:flex-none"
-            style={{ background: "var(--surface)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
-          />
-          <button
-            onClick={createOffice}
-            disabled={!newOfficeName.trim()}
-            className="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
-            style={{ background: "var(--brand)", color: "#ffffff" }}
-          >
-            + Nueva oficina
-          </button>
+          {isSuperAdmin && (
+            <>
+              <input
+                type="text"
+                placeholder="Nombre de la nueva oficina..."
+                value={newOfficeName}
+                onChange={(e) => setNewOfficeName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && createOffice()}
+                className="w-full max-w-full flex-1 rounded-lg px-3 py-2 text-sm outline-none sm:max-w-72 sm:flex-none"
+                style={{ background: "var(--surface)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+              />
+              <button
+                onClick={createOffice}
+                disabled={!newOfficeName.trim()}
+                className="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
+                style={{ background: "var(--brand)", color: "#ffffff" }}
+              >
+                + Nueva oficina
+              </button>
+            </>
+          )}
           <button
             onClick={refresh}
             disabled={refreshing || (cacheInfo?.forceRemaining ?? 1) <= 0}
@@ -361,6 +369,7 @@ export default function ProyeccionPage() {
                       onUpdate={(updates) => updateOffice(o.id, updates)}
                       onDelete={() => deleteOffice(o.id)}
                       crmConnections={crmConnections}
+                      isSuperAdmin={isSuperAdmin}
                       onOpenCampaignPicker={() => setCampaignPickerForId(o.id)}
                       onOpenOfficePicker={() => setOfficePickerForId(o.id)}
                       onOpenCrmPicker={() => setCrmPickerForId(o.id)}
@@ -430,6 +439,7 @@ function OfficeRow({
   crmConnections,
   onUpdate,
   onDelete,
+  isSuperAdmin,
   onOpenCampaignPicker,
   onOpenOfficePicker,
   onOpenCrmPicker,
@@ -440,6 +450,7 @@ function OfficeRow({
   crmConnections: CrmConnection[];
   onUpdate: (updates: Record<string, unknown>) => void;
   onDelete: () => void;
+  isSuperAdmin: boolean;
   onOpenCampaignPicker: () => void;
   onOpenOfficePicker: () => void;
   onOpenCrmPicker: () => void;
@@ -461,21 +472,35 @@ function OfficeRow({
           type="text"
           defaultValue={office.asignacion}
           onBlur={(e) => onUpdate({ asignacion: e.target.value })}
-          className="w-full rounded px-1 py-0.5 text-sm font-medium outline-none"
+          disabled={!isSuperAdmin}
+          className="w-full rounded px-1 py-0.5 text-sm font-medium outline-none disabled:opacity-70"
           style={{ ...inputStyle, color: "var(--text-primary)" }}
         />
-        <button onClick={onOpenCampaignPicker} className="mt-0.5 block text-xs" style={{ color: "var(--brand)" }}>
-          {office.campaigns.length} campaña{office.campaigns.length !== 1 ? "s" : ""} ✎
-        </button>
+        {isSuperAdmin && (
+          <button onClick={onOpenCampaignPicker} className="mt-0.5 block text-xs" style={{ color: "var(--brand)" }}>
+            {office.campaigns.length} campaña{office.campaigns.length !== 1 ? "s" : ""} ✎
+          </button>
+        )}
+        {!isSuperAdmin && (
+          <span className="mt-0.5 block text-xs" style={{ color: "var(--text-muted)" }}>
+            {office.campaigns.length} campaña{office.campaigns.length !== 1 ? "s" : ""}
+          </span>
+        )}
       </td>
       <td className="px-3 py-2">
-        <button
-          onClick={onOpenOfficePicker}
-          className="block w-full truncate rounded px-1 py-0.5 text-left text-sm outline-none"
-          style={{ color: linkedOfficeName ? "var(--text-primary)" : "var(--text-muted)" }}
-        >
-          {linkedOfficeName ?? "Sin vincular"} ✎
-        </button>
+        {isSuperAdmin ? (
+          <button
+            onClick={onOpenOfficePicker}
+            className="block w-full truncate rounded px-1 py-0.5 text-left text-sm outline-none"
+            style={{ color: linkedOfficeName ? "var(--text-primary)" : "var(--text-muted)" }}
+          >
+            {linkedOfficeName ?? "Sin vincular"} ✎
+          </button>
+        ) : (
+          <span className="block truncate text-sm" style={{ color: linkedOfficeName ? "var(--text-primary)" : "var(--text-muted)" }}>
+            {linkedOfficeName ?? "Sin vincular"}
+          </span>
+        )}
         <div className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
           $ Diario: <span style={{ color: "var(--text-primary)" }}>{currency(office.diario)}</span>
         </div>
@@ -491,13 +516,19 @@ function OfficeRow({
       </td>
       <td className="px-3 py-2" style={{ ...cellStyle, color: "var(--series-2)" }}>
         {number(office.leads_crm)}
-        <button
-          onClick={onOpenCrmPicker}
-          className="mt-0.5 block truncate text-left text-xs"
-          style={{ color: office.ghl_tag && linkedCrmName ? "var(--text-muted)" : "var(--brand)" }}
-        >
-          {linkedCrmName && office.ghl_tag ? `${linkedCrmName}: ${office.ghl_tag}` : "Elegir CRM y etiqueta"} ✎
-        </button>
+        {isSuperAdmin ? (
+          <button
+            onClick={onOpenCrmPicker}
+            className="mt-0.5 block truncate text-left text-xs"
+            style={{ color: office.ghl_tag && linkedCrmName ? "var(--text-muted)" : "var(--brand)" }}
+          >
+            {linkedCrmName && office.ghl_tag ? `${linkedCrmName}: ${office.ghl_tag}` : "Elegir CRM y etiqueta"} ✎
+          </button>
+        ) : (
+          <span className="mt-0.5 block truncate text-xs" style={{ color: "var(--text-muted)" }}>
+            {linkedCrmName && office.ghl_tag ? `${linkedCrmName}: ${office.ghl_tag}` : "Sin vincular"}
+          </span>
+        )}
       </td>
       <td className="px-3 py-2" style={cellStyle}>
         {currency(office.costo_x_resultado)}
@@ -527,9 +558,7 @@ function OfficeRow({
       <td className="px-3 py-2" style={cellStyle}>
         {number(office.ftd_meta_mes)}
       </td>
-      <td className="px-3 py-2 text-right">
-        <DeleteButton onConfirm={onDelete} />
-      </td>
+      <td className="px-3 py-2 text-right">{isSuperAdmin && <DeleteButton onConfirm={onDelete} />}</td>
     </tr>
   );
 }

@@ -1,26 +1,56 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { supabaseBrowser } from "@/lib/supabaseBrowser";
 
 const NAV_ITEMS = [
-  { label: "Dashboard", href: "/" },
-  { label: "Reporte Diario", href: "/reporte-diario" },
-  { label: "Distribución", href: "/distribucion" },
-  { label: "Proyección", href: "/proyeccion" },
-  { label: "Gráficos", href: "/graficos" },
-  { label: "Status API", href: "/status-api" },
-  { label: "Usuarios", href: "/usuarios" },
+  { label: "Dashboard", href: "/", key: "dashboard" },
+  { label: "Reporte Diario", href: "/reporte-diario", key: "reporte-diario" },
+  { label: "Distribución", href: "/distribucion", key: "distribucion" },
+  { label: "Proyección", href: "/proyeccion", key: "proyeccion" },
+  { label: "Gráficos", href: "/graficos", key: "graficos" },
+  { label: "Status API", href: "/status-api", key: "status-api" },
 ] as const;
+
+interface CurrentUser {
+  full_name: string;
+  email: string;
+  role: "superadmin" | "admin";
+  module_permissions: string[];
+}
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [user, setUser] = useState<CurrentUser | null>(null);
 
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (pathname === "/login") return;
+    fetch("/api/auth/me")
+      .then((res) => res.json())
+      .then((json) => {
+        if (!json.error) setUser(json.data);
+      })
+      .catch(() => {});
+  }, [pathname]);
+
+  if (pathname === "/login") return null;
+
+  const isSuperAdmin = user?.role === "superadmin";
+  const visibleItems = NAV_ITEMS.filter((item) => !user || isSuperAdmin || user.module_permissions.includes(item.key));
+
+  async function logout() {
+    await supabaseBrowser().auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
 
   return (
     <>
@@ -85,8 +115,8 @@ export default function Sidebar() {
           </button>
         </div>
 
-        <nav className="flex flex-col gap-1">
-          {NAV_ITEMS.map((item) => {
+        <nav className="flex flex-1 flex-col gap-1">
+          {visibleItems.map((item) => {
             const active = pathname === item.href;
             return (
               <Link
@@ -103,7 +133,34 @@ export default function Sidebar() {
               </Link>
             );
           })}
+          {isSuperAdmin && (
+            <Link
+              href="/usuarios"
+              onClick={() => setOpen(false)}
+              className="rounded-md px-3 py-2 text-sm font-medium transition-colors"
+              style={{
+                background: pathname === "/usuarios" ? "var(--brand)" : "transparent",
+                color: pathname === "/usuarios" ? "#ffffff" : "var(--text-secondary)",
+              }}
+            >
+              Usuarios
+            </Link>
+          )}
         </nav>
+
+        {user && (
+          <div className="mt-4 border-t pt-4" style={{ borderColor: "var(--gridline)" }}>
+            <p className="truncate text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+              {user.full_name || user.email}
+            </p>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+              {isSuperAdmin ? "SuperAdmin" : "Admin"}
+            </p>
+            <button onClick={logout} className="mt-2 text-xs font-medium" style={{ color: "var(--critical)" }}>
+              Cerrar sesión
+            </button>
+          </div>
+        )}
       </aside>
     </>
   );

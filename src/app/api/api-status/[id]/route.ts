@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { buildConnectionStatus } from "@/lib/whatsapp";
+import { requireWriteAccess } from "@/lib/auth";
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireWriteAccess();
+  if ("error" in auth) return auth.error;
+
   const { id } = await params;
   const supabase = supabaseServer();
   const body = await request.json();
@@ -30,6 +34,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireWriteAccess();
+  if ("error" in auth) return auth.error;
+
   const { id } = await params;
   const supabase = supabaseServer();
   const { error } = await supabase.from("api_connections").delete().eq("id", id);

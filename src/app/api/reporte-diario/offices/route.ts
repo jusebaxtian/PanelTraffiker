@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { requireWriteAccess } from "@/lib/auth";
 
 export async function GET() {
   const supabase = supabaseServer();
@@ -16,6 +17,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireWriteAccess();
+  if ("error" in auth) return auth.error;
+
   const supabase = supabaseServer();
   const body = await request.json();
 

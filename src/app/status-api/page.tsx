@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 interface ApiConnection {
   id: string;
@@ -29,6 +30,7 @@ function qualityMeta(q: ApiConnection["quality_rating"], error: string | null) {
 }
 
 export default function StatusApiPage() {
+  const { isSuperAdmin } = useCurrentUser();
   const [connections, setConnections] = useState<ApiConnection[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -183,7 +185,7 @@ export default function StatusApiPage() {
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-8 sm:py-8">
         <div className="mb-6 flex flex-wrap items-center gap-2">
-          {!adding ? (
+          {!isSuperAdmin ? null : !adding ? (
             <button
               onClick={() => setAdding(true)}
               className="rounded-lg px-4 py-2 text-sm font-medium"
@@ -424,24 +426,26 @@ export default function StatusApiPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <span className="inline-flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                            <button
-                              onClick={() => startEdit(c)}
-                              className="text-xs"
-                              style={{ color: "var(--text-muted)" }}
-                              title="Editar conexión"
-                            >
-                              ✎
-                            </button>
-                            <button
-                              onClick={() => deleteConnection(c.id)}
-                              className="text-xs"
-                              style={{ color: "var(--critical)" }}
-                              title="Eliminar conexión"
-                            >
-                              ✕
-                            </button>
-                          </span>
+                          {isSuperAdmin && (
+                            <span className="inline-flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                              <button
+                                onClick={() => startEdit(c)}
+                                className="text-xs"
+                                style={{ color: "var(--text-muted)" }}
+                                title="Editar conexión"
+                              >
+                                ✎
+                              </button>
+                              <button
+                                onClick={() => deleteConnection(c.id)}
+                                className="text-xs"
+                                style={{ color: "var(--critical)" }}
+                                title="Eliminar conexión"
+                              >
+                                ✕
+                              </button>
+                            </span>
+                          )}
                         </td>
                       </tr>
                     );
