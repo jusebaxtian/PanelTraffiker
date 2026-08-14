@@ -255,11 +255,7 @@ export default function ReporteDiarioPage() {
         {!loading && (
           <div
             className="overflow-hidden rounded-lg"
-            style={{
-              border: "1px solid var(--border)",
-              background: "var(--surface)",
-              ...(!isSuperAdmin ? { pointerEvents: "none" as const } : {}),
-            }}
+            style={{ border: "1px solid var(--border)", background: "var(--surface)" }}
           >
             <div className="overflow-x-auto">
               <table className="text-left text-sm" style={{ tableLayout: "fixed", minWidth: 1200 }}>
@@ -296,6 +292,7 @@ export default function ReporteDiarioPage() {
                       idx={idx}
                       distribucionOffices={distribucionOffices}
                       crmConnections={crmConnections}
+                      isSuperAdmin={isSuperAdmin}
                       onUpdate={(updates) => updateOffice(o.id, updates)}
                       onDelete={() => deleteOffice(o.id)}
                       onOpenCampaignPicker={() => setCampaignPickerForId(o.id)}
@@ -365,6 +362,7 @@ function OfficeRow({
   idx,
   distribucionOffices,
   crmConnections,
+  isSuperAdmin,
   onUpdate,
   onDelete,
   onOpenCampaignPicker,
@@ -375,6 +373,7 @@ function OfficeRow({
   idx: number;
   distribucionOffices: DistribucionOffice[];
   crmConnections: CrmConnection[];
+  isSuperAdmin: boolean;
   onUpdate: (updates: Record<string, unknown>) => void;
   onDelete: () => void;
   onOpenCampaignPicker: () => void;
@@ -398,21 +397,34 @@ function OfficeRow({
           type="text"
           defaultValue={office.asignacion}
           onBlur={(e) => onUpdate({ asignacion: e.target.value })}
-          className="w-full rounded px-1 py-0.5 text-sm font-medium outline-none"
+          disabled={!isSuperAdmin}
+          className="w-full rounded px-1 py-0.5 text-sm font-medium outline-none disabled:opacity-70"
           style={{ ...inputStyle, color: "var(--text-primary)" }}
         />
-        <button onClick={onOpenCampaignPicker} className="mt-0.5 block text-xs" style={{ color: "var(--brand)" }}>
-          {office.campaigns.length} campaña{office.campaigns.length !== 1 ? "s" : ""} ✎
-        </button>
+        {isSuperAdmin ? (
+          <button onClick={onOpenCampaignPicker} className="mt-0.5 block text-xs" style={{ color: "var(--brand)" }}>
+            {office.campaigns.length} campaña{office.campaigns.length !== 1 ? "s" : ""} ✎
+          </button>
+        ) : (
+          <span className="mt-0.5 block text-xs" style={{ color: "var(--text-muted)" }}>
+            {office.campaigns.length} campaña{office.campaigns.length !== 1 ? "s" : ""}
+          </span>
+        )}
       </td>
       <td className="px-3 py-2">
-        <button
-          onClick={onOpenOfficePicker}
-          className="block w-full truncate rounded px-1 py-0.5 text-left text-sm outline-none"
-          style={{ color: linkedOfficeName ? "var(--text-primary)" : "var(--text-muted)" }}
-        >
-          {linkedOfficeName ?? "Sin vincular"} ✎
-        </button>
+        {isSuperAdmin ? (
+          <button
+            onClick={onOpenOfficePicker}
+            className="block w-full truncate rounded px-1 py-0.5 text-left text-sm outline-none"
+            style={{ color: linkedOfficeName ? "var(--text-primary)" : "var(--text-muted)" }}
+          >
+            {linkedOfficeName ?? "Sin vincular"} ✎
+          </button>
+        ) : (
+          <span className="block truncate text-sm" style={{ color: linkedOfficeName ? "var(--text-primary)" : "var(--text-muted)" }}>
+            {linkedOfficeName ?? "Sin vincular"}
+          </span>
+        )}
       </td>
       <td className="px-3 py-2" style={cellStyle}>
         {currency(office.diario)}
@@ -422,13 +434,19 @@ function OfficeRow({
       </td>
       <td className="px-3 py-2" style={{ ...cellStyle, color: "var(--series-2)" }}>
         {number(office.leads_crm)}
-        <button
-          onClick={onOpenCrmPicker}
-          className="mt-0.5 block truncate text-left text-xs"
-          style={{ color: office.ghl_tag && linkedCrmName ? "var(--text-muted)" : "var(--brand)" }}
-        >
-          {linkedCrmName && office.ghl_tag ? `${linkedCrmName}: ${office.ghl_tag}` : "Elegir CRM y etiqueta"} ✎
-        </button>
+        {isSuperAdmin ? (
+          <button
+            onClick={onOpenCrmPicker}
+            className="mt-0.5 block truncate text-left text-xs"
+            style={{ color: office.ghl_tag && linkedCrmName ? "var(--text-muted)" : "var(--brand)" }}
+          >
+            {linkedCrmName && office.ghl_tag ? `${linkedCrmName}: ${office.ghl_tag}` : "Elegir CRM y etiqueta"} ✎
+          </button>
+        ) : (
+          <span className="mt-0.5 block truncate text-xs" style={{ color: "var(--text-muted)" }}>
+            {linkedCrmName && office.ghl_tag ? `${linkedCrmName}: ${office.ghl_tag}` : "Sin vincular"}
+          </span>
+        )}
       </td>
       <td className="px-3 py-2" style={cellStyle}>
         {currency(office.costo_x_resultado)}
@@ -436,9 +454,7 @@ function OfficeRow({
       <td className="px-3 py-2 font-medium" style={{ ...cellStyle, color: "var(--text-primary)" }}>
         {currency(office.gasto)}
       </td>
-      <td className="px-3 py-2 text-right">
-        <DeleteButton onConfirm={onDelete} />
-      </td>
+      <td className="px-3 py-2 text-right">{isSuperAdmin && <DeleteButton onConfirm={onDelete} />}</td>
     </tr>
   );
 }
