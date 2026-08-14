@@ -6,8 +6,9 @@ export const BOGOTA_UTC_OFFSET_MS = 5 * 60 * 60 * 1000;
 
 // Server-side: Date cuyos getters UTC (getUTCFullYear, getUTCMonth,
 // getUTCDate, ...) devuelven los valores de la hora civil de Bogotá.
+// Bogotá va 5 horas DETRÁS de UTC, así que hay que restar el offset.
 export function bogotaNowServer(): Date {
-  return new Date(Date.now() + BOGOTA_UTC_OFFSET_MS);
+  return new Date(Date.now() - BOGOTA_UTC_OFFSET_MS);
 }
 
 export function bogotaMonthKey(date: Date = bogotaNowServer()): string {
