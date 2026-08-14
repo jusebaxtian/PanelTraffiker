@@ -51,8 +51,11 @@ function rowToOffice(row: {
 
 // Un día ya guardado (reporte_diario_snapshots) queda fijo para siempre:
 // solo se consulta Meta/GHL para las oficinas que todavía no tienen
-// snapshot de esa fecha (día nuevo, u oficina agregada después).
-export async function getOrBuildSnapshot(dateStr: string): Promise<ReporteDiarioOfficeComputed[]> {
+// snapshot de esa fecha (día nuevo, u oficina agregada después). Con
+// force=true se recalculan TODAS las oficinas de ese día — necesario
+// cuando el usuario vincula campañas/CRM después de que ya se guardó un
+// snapshot en blanco para esa fecha.
+export async function getOrBuildSnapshot(dateStr: string, force = false): Promise<ReporteDiarioOfficeComputed[]> {
   const supabase = supabaseServer();
 
   const [
@@ -83,7 +86,7 @@ export async function getOrBuildSnapshot(dateStr: string): Promise<ReporteDiario
   const crmConnectionById = new Map((crmConnections ?? []).map((c: CrmConnectionRow) => [c.id, c]));
   const snapshotByOfficeId = new Map((existingSnapshots ?? []).map((s: SnapshotRow) => [s.office_id, s]));
 
-  const missingOffices = offices.filter((o) => !snapshotByOfficeId.has(o.id));
+  const missingOffices = force ? offices : offices.filter((o) => !snapshotByOfficeId.has(o.id));
   const { since, until, start, end } = bogotaDayRange(dateStr);
 
   if (missingOffices.length > 0) {

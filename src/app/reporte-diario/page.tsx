@@ -54,10 +54,11 @@ export default function ReporteDiarioPage() {
   const [officePickerForId, setOfficePickerForId] = useState<string | null>(null);
   const [crmPickerForId, setCrmPickerForId] = useState<string | null>(null);
 
-  function loadSnapshot(date: string, silent = false) {
+  function loadSnapshot(date: string, silent = false, force = false) {
     if (!silent) setLoading(true);
     else setRefreshing(true);
-    fetch(`/api/reporte-diario/snapshot?date=${date}`)
+    const url = `/api/reporte-diario/snapshot?date=${date}${force ? "&force=1" : ""}`;
+    fetch(url)
       .then((res) => res.json())
       .then((json) => {
         if (json.error) setError(json.error);
@@ -112,7 +113,7 @@ export default function ReporteDiarioPage() {
   }, []);
 
   function refresh() {
-    if (selectedDate) loadSnapshot(selectedDate, true);
+    if (selectedDate) loadSnapshot(selectedDate, true, true);
   }
 
   async function createOffice() {
@@ -252,15 +253,16 @@ export default function ReporteDiarioPage() {
                 <colgroup>
                   <col style={{ width: 220 }} />
                   <col style={{ width: 170 }} />
-                  <col style={{ width: 140 }} />
+                  <col style={{ width: 130 }} />
+                  <col style={{ width: 120 }} />
                   <col style={{ width: 210 }} />
-                  <col style={{ width: 140 }} />
                   <col style={{ width: 150 }} />
+                  <col style={{ width: 140 }} />
                   <col style={{ width: 60 }} />
                 </colgroup>
                 <thead>
                   <tr style={{ borderBottom: "1px solid var(--gridline)" }}>
-                    {["Campaña", "Oficina (Distribución)", "$ Diario", "Leads/CRM (etiqueta GHL)", "Leads/Meta", "Costo x Resultado", "Gasto del día", ""].map(
+                    {["Campaña", "Oficina (Distribución)", "$ Diario", "Leads/Meta", "Leads/CRM (etiqueta GHL)", "Costo x Resultado", "Gasto del día", ""].map(
                       (h, i) => (
                         <th
                           key={i}
@@ -402,6 +404,9 @@ function OfficeRow({
       <td className="px-3 py-2" style={cellStyle}>
         {currency(office.diario)}
       </td>
+      <td className="px-3 py-2" style={cellStyle}>
+        {number(office.leads_meta)}
+      </td>
       <td className="px-3 py-2" style={{ ...cellStyle, color: "var(--series-2)" }}>
         {number(office.leads_crm)}
         <button
@@ -411,9 +416,6 @@ function OfficeRow({
         >
           {linkedCrmName && office.ghl_tag ? `${linkedCrmName}: ${office.ghl_tag}` : "Elegir CRM y etiqueta"} ✎
         </button>
-      </td>
-      <td className="px-3 py-2" style={cellStyle}>
-        {number(office.leads_meta)}
       </td>
       <td className="px-3 py-2" style={cellStyle}>
         {currency(office.costo_x_resultado)}
