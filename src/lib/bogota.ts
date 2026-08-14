@@ -16,6 +16,28 @@ export function bogotaMonthKey(date: Date = bogotaNowServer()): string {
   return `${year}-${month}`;
 }
 
+export function bogotaDateString(date: Date = bogotaNowServer()): string {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function bogotaYesterdayDateString(): string {
+  const yesterday = new Date(bogotaNowServer());
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  return bogotaDateString(yesterday);
+}
+
+// Rango [start, end) del día indicado (YYYY-MM-DD) en hora legal de
+// Colombia, expresado como instantes UTC absolutos.
+export function bogotaDayRange(dateStr: string) {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const start = new Date(Date.UTC(year, month - 1, day, 0, 0, 0) + BOGOTA_UTC_OFFSET_MS);
+  const end = new Date(Date.UTC(year, month - 1, day + 1, 0, 0, 0) + BOGOTA_UTC_OFFSET_MS);
+  return { start, end, since: dateStr, until: dateStr };
+}
+
 // Client-side: Date cuyos getters LOCALES (getFullYear, getMonth,
 // getDate, ...) devuelven los valores de la hora civil de Bogotá, sin
 // importar la zona horaria del dispositivo del usuario.

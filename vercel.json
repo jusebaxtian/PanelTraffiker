@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/reporte-diario/build",
+      "schedule": "0 11 * * *"
+    }
+  ]
+}
