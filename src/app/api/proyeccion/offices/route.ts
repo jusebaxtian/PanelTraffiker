@@ -33,7 +33,7 @@ function monthRange(monthKey: string) {
   return { start, end, since, until };
 }
 
-const CACHE_TTL_MS = 10 * 60 * 1000;
+const CACHE_TTL_MS = 30 * 60 * 1000;
 const MAX_FORCE_REFRESHES_PER_WINDOW = 2;
 
 interface CacheRow {
@@ -71,6 +71,10 @@ function rowToOffice(row: {
 export async function GET(request: NextRequest) {
   const configId = request.nextUrl.searchParams.get("config_id");
   const force = request.nextUrl.searchParams.get("force") === "1";
+  // configChange = se acaba de vincular/cambiar una campaña, oficina o
+  // CRM: eso siempre debe reflejarse de inmediato, sin gastar ni
+  // esperar el cupo limitado del botón "Actualizar".
+  const configChange = request.nextUrl.searchParams.get("configChange") === "1";
   if (!configId) {
     return NextResponse.json({ error: "config_id es requerido" }, { status: 400 });
   }
@@ -119,17 +123,17 @@ export async function GET(request: NextRequest) {
   );
 
   // El gasto de Meta y los leads de GHL se guardan en caché por mes
-  // (proyeccion_metrics_cache) durante 10 minutos, para no consultar esas
+  // (proyeccion_metrics_cache) durante 30 minutos, para no consultar esas
   // APIs en cada carga de página ni en cada edición de un campo — así se
   // evita el riesgo de bloqueo por límite de tasa cuando entran varios
   // usuarios a la vez. El botón "Actualizar" puede forzar hasta 2
   // consultas frescas dentro de esa ventana; a la tercera debe esperar a
-  // que la ventana de 10 minutos se renueve sola.
+  // que la ventana de 30 minutos se renueve sola.
   const now = Date.now();
   const windowAgeMs = cache ? now - new Date(cache.window_started_at).getTime() : Infinity;
   const windowExpired = windowAgeMs >= CACHE_TTL_MS;
   const forceAllowed = force && !windowExpired && (cache?.force_count ?? 0) < MAX_FORCE_REFRESHES_PER_WINDOW;
-  const shouldFetchLive = !cache || windowExpired || forceAllowed;
+  const shouldFetchLive = !cache || windowExpired || forceAllowed || configChange;
 
   let gastoByOfficeId: Record<string, number>;
   let leadsByOfficeId: Record<string, number>;
@@ -172,7 +176,9 @@ export async function GET(request: NextRequest) {
     );
 
     const isNewWindow = !cache || windowExpired;
-    const nextForceCount = isNewWindow ? 0 : (cache?.force_count ?? 0) + 1;
+    // Un configChange no cuenta contra el cupo de refrescos manuales:
+    // solo se actualizan los datos, sin tocar la ventana ni el contador.
+    const nextForceCount = isNewWindow ? 0 : configChange ? cache?.force_count ?? 0 : (cache?.force_count ?? 0) + 1;
     const nextWindowStartedAt = isNewWindow ? new Date(now).toISOString() : cache!.window_started_at;
 
     await supabase.from("proyeccion_metrics_cache").upsert({

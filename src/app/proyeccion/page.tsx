@@ -68,10 +68,13 @@ export default function ProyeccionPage() {
       });
   }
 
-  function loadOffices(configId: string, silent = false, force = false) {
+  function loadOffices(configId: string, silent = false, force = false, configChange = false) {
     if (!silent) setLoading(true);
     else setRefreshing(true);
-    const url = `/api/proyeccion/offices?config_id=${configId}${force ? "&force=1" : ""}`;
+    const params = new URLSearchParams({ config_id: configId });
+    if (force) params.set("force", "1");
+    if (configChange) params.set("configChange", "1");
+    const url = `/api/proyeccion/offices?${params.toString()}`;
     fetch(url)
       .then((res) => res.json())
       .then((json) => {
@@ -167,13 +170,18 @@ export default function ProyeccionPage() {
     loadOffices(config.id, true);
   }
 
+  const CONFIG_CHANGE_FIELDS = ["campaigns", "distribucion_office_id", "ghl_tag", "crm_connection_id"];
+
   async function updateOffice(id: string, updates: Record<string, unknown>) {
     await fetch(`/api/proyeccion/offices/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updates),
     });
-    if (config) loadOffices(config.id, true);
+    // Vincular una campaña, oficina o CRM nuevos debe reflejarse de
+    // inmediato; el resto de ediciones (ej. FTDs Real) usan la caché.
+    const isConfigChange = Object.keys(updates).some((k) => CONFIG_CHANGE_FIELDS.includes(k));
+    if (config) loadOffices(config.id, true, false, isConfigChange);
   }
 
   async function deleteOffice(id: string) {
@@ -290,7 +298,7 @@ export default function ProyeccionPage() {
             disabled={refreshing || (cacheInfo?.forceRemaining ?? 1) <= 0}
             title={
               (cacheInfo?.forceRemaining ?? 1) <= 0
-                ? "Ya usaste las actualizaciones manuales disponibles — espera a que se renueve el caché (cada 10 min)"
+                ? "Ya usaste las actualizaciones manuales disponibles — espera a que se renueve el caché (cada 30 min)"
                 : undefined
             }
             className="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"

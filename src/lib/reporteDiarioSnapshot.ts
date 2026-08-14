@@ -27,6 +27,21 @@ interface SnapshotRow {
   gasto: number;
   leads_meta: number;
   leads_crm: number;
+  created_at?: string;
+}
+
+interface RefreshState {
+  window_started_at: string;
+  force_count: number;
+}
+
+const CACHE_TTL_MS = 30 * 60 * 1000;
+const MAX_MANUAL_REFRESHES_PER_WINDOW = 2;
+
+export interface SnapshotMeta {
+  updatedAt: string | null;
+  forceRemaining: number;
+  nextWindowAt: string;
 }
 
 function rowToOffice(row: {
@@ -51,11 +66,18 @@ function rowToOffice(row: {
 
 // Un día ya guardado (reporte_diario_snapshots) queda fijo para siempre:
 // solo se consulta Meta/GHL para las oficinas que todavía no tienen
-// snapshot de esa fecha (día nuevo, u oficina agregada después). Con
-// force=true se recalculan TODAS las oficinas de ese día — necesario
-// cuando el usuario vincula campañas/CRM después de que ya se guardó un
-// snapshot en blanco para esa fecha.
-export async function getOrBuildSnapshot(dateStr: string, force = false): Promise<ReporteDiarioOfficeComputed[]> {
+// snapshot de esa fecha (día nuevo, u oficina agregada después).
+//
+// - opts.configChange: se acaba de vincular/cambiar una campaña, oficina
+//   o CRM — siempre recalcula TODAS las oficinas de inmediato, sin
+//   gastar el cupo del botón "Actualizar".
+// - opts.manual: click en "Actualizar" — recalcula todo, pero limitado a
+//   2 veces cada 30 minutos por día consultado (igual que Proyección),
+//   para no saturar las APIs.
+export async function getOrBuildSnapshot(
+  dateStr: string,
+  opts: { configChange?: boolean; manual?: boolean } = {}
+): Promise<{ data: ReporteDiarioOfficeComputed[]; cache: SnapshotMeta }> {
   const supabase = supabaseServer();
 
   const [
@@ -64,12 +86,21 @@ export async function getOrBuildSnapshot(dateStr: string, force = false): Promis
     { data: distribucionAgents },
     { data: crmConnections },
     { data: existingSnapshots },
+    { data: refreshState },
   ] = await Promise.all([
     supabase.from("reporte_diario_offices").select("*").order("position", { ascending: true }),
     supabase.from("offices").select("id, name"),
     supabase.from("agents").select("id, office_id, type, custom_value"),
     supabase.from("proyeccion_crm_connections").select("id, location_id, access_token"),
-    supabase.from("reporte_diario_snapshots").select("office_id, gasto, leads_meta, leads_crm").eq("snapshot_date", dateStr),
+    supabase
+      .from("reporte_diario_snapshots")
+      .select("office_id, gasto, leads_meta, leads_crm, created_at")
+      .eq("snapshot_date", dateStr),
+    supabase
+      .from("reporte_diario_refresh_state")
+      .select("window_started_at, force_count")
+      .eq("snapshot_date", dateStr)
+      .maybeSingle<RefreshState>(),
   ]);
 
   if (officesError) {
@@ -86,7 +117,14 @@ export async function getOrBuildSnapshot(dateStr: string, force = false): Promis
   const crmConnectionById = new Map((crmConnections ?? []).map((c: CrmConnectionRow) => [c.id, c]));
   const snapshotByOfficeId = new Map((existingSnapshots ?? []).map((s: SnapshotRow) => [s.office_id, s]));
 
-  const missingOffices = force ? offices : offices.filter((o) => !snapshotByOfficeId.has(o.id));
+  const now = Date.now();
+  const windowAgeMs = refreshState ? now - new Date(refreshState.window_started_at).getTime() : Infinity;
+  const windowExpired = windowAgeMs >= CACHE_TTL_MS;
+  const manualAllowed =
+    !!opts.manual && (windowExpired || !refreshState || refreshState.force_count < MAX_MANUAL_REFRESHES_PER_WINDOW);
+
+  const rebuildAll = !!opts.configChange || manualAllowed;
+  const missingOffices = rebuildAll ? offices : offices.filter((o) => !snapshotByOfficeId.has(o.id));
   const { since, until, start, end } = bogotaDayRange(dateStr);
 
   if (missingOffices.length > 0) {
@@ -119,6 +157,7 @@ export async function getOrBuildSnapshot(dateStr: string, force = false): Promis
           }
         }
 
+        const nowIso = new Date().toISOString();
         const { error } = await supabase
           .from("reporte_diario_snapshots")
           .upsert(
@@ -127,15 +166,50 @@ export async function getOrBuildSnapshot(dateStr: string, force = false): Promis
           );
 
         if (!error) {
-          snapshotByOfficeId.set(office.id, { office_id: office.id, gasto, leads_meta: leadsMeta, leads_crm: leadsCrm });
+          snapshotByOfficeId.set(office.id, {
+            office_id: office.id,
+            gasto,
+            leads_meta: leadsMeta,
+            leads_crm: leadsCrm,
+            created_at: nowIso,
+          });
         }
       })
     );
   }
 
-  return offices.map((office) => {
+  // El cupo de refrescos manuales solo se actualiza cuando el refresco
+  // manual efectivamente se usó (no en cargas normales ni en configChange).
+  let windowStartedAt = refreshState?.window_started_at ?? new Date(now).toISOString();
+  let forceCount = refreshState?.force_count ?? 0;
+  if (opts.manual) {
+    if (windowExpired || !refreshState) {
+      windowStartedAt = new Date(now).toISOString();
+      forceCount = manualAllowed ? 1 : 0;
+    } else if (manualAllowed) {
+      forceCount += 1;
+    }
+    await supabase
+      .from("reporte_diario_refresh_state")
+      .upsert({ snapshot_date: dateStr, window_started_at: windowStartedAt, force_count: forceCount });
+  }
+
+  const latestUpdatedAt = Array.from(snapshotByOfficeId.values()).reduce<string | null>((max, s) => {
+    if (!s.created_at) return max;
+    return !max || s.created_at > max ? s.created_at : max;
+  }, null);
+
+  const cache: SnapshotMeta = {
+    updatedAt: latestUpdatedAt,
+    forceRemaining: MAX_MANUAL_REFRESHES_PER_WINDOW - forceCount,
+    nextWindowAt: new Date(new Date(windowStartedAt).getTime() + CACHE_TTL_MS).toISOString(),
+  };
+
+  const data = offices.map((office) => {
     const diario = office.distribucion_office_id ? diarioByOfficeId.get(office.distribucion_office_id) ?? 0 : 0;
     const snap = snapshotByOfficeId.get(office.id);
     return computeReporteDiarioOffice(office, diario, snap?.gasto ?? 0, snap?.leads_meta ?? 0, snap?.leads_crm ?? 0);
   });
+
+  return { data, cache };
 }

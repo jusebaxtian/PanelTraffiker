@@ -55,17 +55,23 @@ export default function ReporteDiarioPage() {
   const [campaignPickerForId, setCampaignPickerForId] = useState<string | null>(null);
   const [officePickerForId, setOfficePickerForId] = useState<string | null>(null);
   const [crmPickerForId, setCrmPickerForId] = useState<string | null>(null);
+  const [cacheInfo, setCacheInfo] = useState<{ updatedAt: string | null; forceRemaining: number; nextWindowAt: string } | null>(
+    null
+  );
 
-  function loadSnapshot(date: string, silent = false, force = false) {
+  function loadSnapshot(date: string, silent = false, configChange = false, manual = false) {
     if (!silent) setLoading(true);
     else setRefreshing(true);
-    const url = `/api/reporte-diario/snapshot?date=${date}${force ? "&force=1" : ""}`;
-    fetch(url)
+    const params = new URLSearchParams({ date });
+    if (configChange) params.set("configChange", "1");
+    if (manual) params.set("manual", "1");
+    fetch(`/api/reporte-diario/snapshot?${params.toString()}`)
       .then((res) => res.json())
       .then((json) => {
         if (json.error) setError(json.error);
         else {
           setOffices(json.data);
+          setCacheInfo(json.cache ?? null);
           setError(null);
         }
       })
@@ -115,7 +121,7 @@ export default function ReporteDiarioPage() {
   }, []);
 
   function refresh() {
-    if (selectedDate) loadSnapshot(selectedDate, true, true);
+    if (selectedDate) loadSnapshot(selectedDate, true, false, true);
   }
 
   async function createOffice() {
@@ -134,13 +140,18 @@ export default function ReporteDiarioPage() {
     if (selectedDate) loadSnapshot(selectedDate, true);
   }
 
+  const CONFIG_CHANGE_FIELDS = ["campaigns", "distribucion_office_id", "ghl_tag", "crm_connection_id"];
+
   async function updateOffice(id: string, updates: Record<string, unknown>) {
     await fetch(`/api/reporte-diario/offices/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updates),
     });
-    if (selectedDate) loadSnapshot(selectedDate, true);
+    // Vincular una campaña, oficina o CRM nuevos debe reflejarse de
+    // inmediato; el resto de ediciones usan la caché del día.
+    const isConfigChange = Object.keys(updates).some((k) => CONFIG_CHANGE_FIELDS.includes(k));
+    if (selectedDate) loadSnapshot(selectedDate, true, isConfigChange);
   }
 
   async function deleteOffice(id: string) {
@@ -233,12 +244,18 @@ export default function ReporteDiarioPage() {
           )}
           <button
             onClick={refresh}
-            disabled={refreshing}
+            disabled={refreshing || (cacheInfo?.forceRemaining ?? 1) <= 0}
+            title={
+              (cacheInfo?.forceRemaining ?? 1) <= 0
+                ? "Ya usaste las actualizaciones manuales disponibles — espera a que se renueve el caché (cada 30 min)"
+                : undefined
+            }
             className="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
             style={{ background: "var(--surface)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
           >
             {refreshing ? "Actualizando..." : "↻ Actualizar"}
           </button>
+          {cacheInfo && <CacheStatus cacheInfo={cacheInfo} />}
         </div>
 
         {loading && <p style={{ color: "var(--text-secondary)" }}>Cargando...</p>}
@@ -491,6 +508,32 @@ function DeleteButton({ onConfirm }: { onConfirm: () => void }) {
     >
       ✕
     </button>
+  );
+}
+
+function CacheStatus({ cacheInfo }: { cacheInfo: { updatedAt: string | null; forceRemaining: number } }) {
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => setTick((t) => t + 1), 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (!cacheInfo.updatedAt) {
+    return (
+      <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+        {Math.max(0, cacheInfo.forceRemaining)} actualizaciones manuales disponibles
+      </span>
+    );
+  }
+
+  const secondsAgo = Math.max(0, Math.round((Date.now() - new Date(cacheInfo.updatedAt).getTime()) / 1000));
+  const agoLabel = secondsAgo < 60 ? `hace ${secondsAgo}s` : `hace ${Math.round(secondsAgo / 60)} min`;
+
+  return (
+    <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+      Datos {agoLabel} · {Math.max(0, cacheInfo.forceRemaining)} actualizaciones manuales disponibles
+    </span>
   );
 }
 

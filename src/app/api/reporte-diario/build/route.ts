@@ -8,7 +8,7 @@ import { bogotaYesterdayDateString } from "@/lib/bogota";
 export async function GET() {
   const date = bogotaYesterdayDateString();
   try {
-    const data = await getOrBuildSnapshot(date);
+    const { data } = await getOrBuildSnapshot(date);
     return NextResponse.json({ ok: true, date, offices: data.length });
   } catch (err) {
     return NextResponse.json(
