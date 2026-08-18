@@ -19,7 +19,7 @@ interface ProfileRow {
   module_permissions: string[];
 }
 
-async function fetchProfile(userId: string): Promise<ProfileRow | null> {
+async function fetchProfileOnce(userId: string): Promise<ProfileRow | null> {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/user_profiles?id=eq.${userId}&select=role,active,module_permissions`,
     {
@@ -34,6 +34,26 @@ async function fetchProfile(userId: string): Promise<ProfileRow | null> {
   if (!res.ok) return null;
   const rows = await res.json();
   return rows?.[0] ?? null;
+}
+
+// El backend de Supabase Auth es autohospedado y comparte VPS con otro
+// proyecto de alto tráfico; a veces una consulta puntual tarda o falla
+// por congestión momentánea. Reintentamos una vez antes de tratar al
+// usuario como no autenticado, para no romper la carga de datos por un
+// hipo transitorio del servidor.
+async function fetchProfile(userId: string): Promise<ProfileRow | null> {
+  try {
+    const profile = await fetchProfileOnce(userId);
+    if (profile) return profile;
+  } catch {
+    // sigue al reintento
+  }
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  try {
+    return await fetchProfileOnce(userId);
+  } catch {
+    return null;
+  }
 }
 
 export async function middleware(request: NextRequest) {
@@ -55,9 +75,23 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Igual que con el perfil: la validación de sesión pega al mismo
+  // backend autohospedado y congestionado, así que un fallo puntual no
+  // debe cerrarle la sesión a alguien que sí está logueado.
+  let user = null;
+  try {
+    user = (await supabase.auth.getUser()).data.user;
+  } catch {
+    user = null;
+  }
+  if (!user) {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    try {
+      user = (await supabase.auth.getUser()).data.user;
+    } catch {
+      user = null;
+    }
+  }
 
   const isApi = request.nextUrl.pathname.startsWith("/api/");
 
