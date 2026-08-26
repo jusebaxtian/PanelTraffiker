@@ -41,6 +41,8 @@ export default function StatusApiPage() {
   const [phoneNumberId, setPhoneNumberId] = useState("");
   const [wabaId, setWabaId] = useState("");
   const [accessToken, setAccessToken] = useState("");
+  const [reuseFromId, setReuseFromId] = useState("");
+  const [tokenReused, setTokenReused] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const [editPhoneId, setEditPhoneId] = useState("");
@@ -94,7 +96,26 @@ export default function StatusApiPage() {
     setPhoneNumberId("");
     setWabaId("");
     setAccessToken("");
+    setReuseFromId("");
+    setTokenReused(false);
     setAdding(false);
+  }
+
+  async function reuseToken(sourceId: string) {
+    setReuseFromId(sourceId);
+    if (!sourceId) {
+      setAccessToken("");
+      setTokenReused(false);
+      return;
+    }
+    const res = await fetch(`/api/api-status/${sourceId}/token`);
+    const json = await res.json();
+    if (json.error) {
+      setError(json.error);
+      return;
+    }
+    setAccessToken(json.access_token);
+    setTokenReused(true);
   }
 
   async function deleteConnection(id: string) {
@@ -222,11 +243,28 @@ export default function StatusApiPage() {
                 className="min-w-40 flex-1 rounded-md px-3 py-2 text-sm outline-none"
                 style={{ background: "var(--page)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
               />
+              <select
+                value={reuseFromId}
+                onChange={(e) => reuseToken(e.target.value)}
+                className="min-w-48 flex-1 rounded-md px-3 py-2 text-sm outline-none"
+                style={{ background: "var(--page)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+              >
+                <option value="">Copiar token de... (mismo portafolio)</option>
+                {connections.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
               <input
-                type="password"
+                type={tokenReused ? "text" : "password"}
                 placeholder="Access Token"
                 value={accessToken}
-                onChange={(e) => setAccessToken(e.target.value)}
+                onChange={(e) => {
+                  setAccessToken(e.target.value);
+                  setTokenReused(false);
+                  setReuseFromId("");
+                }}
                 className="min-w-40 flex-1 rounded-md px-3 py-2 text-sm outline-none"
                 style={{ background: "var(--page)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
               />
@@ -244,6 +282,8 @@ export default function StatusApiPage() {
                   setPhoneNumberId("");
                   setWabaId("");
                   setAccessToken("");
+                  setReuseFromId("");
+                  setTokenReused(false);
                 }}
                 className="text-sm"
                 style={{ color: "var(--text-muted)" }}
