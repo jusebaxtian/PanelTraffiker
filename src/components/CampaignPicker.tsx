@@ -5,9 +5,24 @@ import type { CampaignRef } from "@/lib/proyeccion";
 
 interface CampaignOption {
   account_id: string;
+  account_name?: string;
   campaign_id: string;
   campaign_name: string;
   status?: string;
+}
+
+function statusMeta(status?: string) {
+  switch (status) {
+    case "ACTIVE":
+      return { color: "var(--good)", label: "Activa" };
+    case "PAUSED":
+      return { color: "var(--text-muted)", label: "Pausada" };
+    case "DELETED":
+    case "ARCHIVED":
+      return { color: "var(--critical)", label: "Archivada" };
+    default:
+      return { color: "var(--text-muted)", label: status ?? "-" };
+  }
 }
 
 export default function CampaignPicker({
@@ -162,21 +177,26 @@ export default function CampaignPicker({
         <div className="flex-1 overflow-y-auto">
           {loading && <p style={{ color: "var(--text-muted)" }}>Cargando campañas...</p>}
           {!loading &&
-            filtered.map((c) => (
-              <label
-                key={c.campaign_id}
-                className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                <input type="checkbox" checked={picked.has(c.campaign_id)} onChange={() => toggle(c.campaign_id)} />
-                <span className="truncate" style={{ color: "var(--text-primary)" }}>
-                  {c.campaign_name}
-                </span>
-                <span className="ml-auto shrink-0 text-xs" style={{ color: "var(--text-muted)" }}>
-                  {c.account_id?.replace("act_", "")}
-                </span>
-              </label>
-            ))}
+            filtered.map((c) => {
+              const status = statusMeta(c.status);
+              return (
+                <label
+                  key={c.campaign_id}
+                  className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  <input type="checkbox" checked={picked.has(c.campaign_id)} onChange={() => toggle(c.campaign_id)} />
+                  <span className="truncate" style={{ color: "var(--text-primary)" }}>
+                    {c.campaign_name}
+                  </span>
+                  <span className="ml-auto shrink-0 text-right text-xs">
+                    <span style={{ color: status.color }}>{status.label}</span>
+                    <br />
+                    <span style={{ color: "var(--text-muted)" }}>{c.account_name ?? c.account_id?.replace("act_", "")}</span>
+                  </span>
+                </label>
+              );
+            })}
           {!loading && filtered.length === 0 && <p style={{ color: "var(--text-muted)" }}>Sin resultados.</p>}
         </div>
         <div className="mt-3 flex justify-end gap-2">

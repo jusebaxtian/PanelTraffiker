@@ -6,6 +6,7 @@ const META_BASE_URL = `https://graph.facebook.com/${META_API_VERSION}`;
 export interface AdAccountConnection {
   accountId: string;
   accessToken: string;
+  name?: string;
 }
 
 // Combina las cuentas configuradas por variables de entorno (token
@@ -22,13 +23,31 @@ export async function getAllAdAccountConnections(): Promise<AdAccountConnection[
     : [];
 
   const supabase = supabaseServer();
-  const { data } = await supabase.from("meta_ad_accounts").select("account_id, access_token");
-  const dbAccounts: AdAccountConnection[] = (data ?? []).map((a: { account_id: string; access_token: string }) => ({
-    accountId: a.account_id,
-    accessToken: a.access_token,
-  }));
+  const { data } = await supabase.from("meta_ad_accounts").select("account_id, access_token, name");
+  const dbAccounts: AdAccountConnection[] = (data ?? []).map(
+    (a: { account_id: string; access_token: string; name: string }) => ({
+      accountId: a.account_id,
+      accessToken: a.access_token,
+      name: a.name,
+    })
+  );
 
   return [...envAccounts, ...dbAccounts];
+}
+
+// Nombre real de la cuenta publicitaria en Meta, para las que no se
+// agregaron con un nombre propio (cuentas legado por variable de entorno).
+export async function fetchAccountName(adAccountId: string, accessToken: string): Promise<string | null> {
+  const url = new URL(`${META_BASE_URL}/${adAccountId}`);
+  url.searchParams.set("access_token", accessToken);
+  url.searchParams.set("fields", "name");
+  try {
+    const res = await fetch(url.toString());
+    const json = await res.json();
+    return json.name ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export interface ActionValue {
@@ -59,6 +78,7 @@ export interface AdInsight {
 export interface Campaign {
   id: string;
   account_id?: string;
+  account_name?: string;
   name?: string;
   objective?: string;
   status?: string;
@@ -221,7 +241,11 @@ export async function fetchAccountCampaigns(adAccountId: string, accessToken: st
 export async function fetchAllAccountsCampaigns(): Promise<Campaign[]> {
   const accounts = await getAllAdAccountConnections();
   const results = await Promise.all(
-    accounts.map((a) => fetchAccountCampaigns(a.accountId, a.accessToken).catch(() => [] as Campaign[]))
+    accounts.map(async (a) => {
+      const accountName = a.name ?? (await fetchAccountName(a.accountId, a.accessToken).catch(() => null));
+      const campaigns = await fetchAccountCampaigns(a.accountId, a.accessToken).catch(() => [] as Campaign[]);
+      return campaigns.map((c) => ({ ...c, account_name: accountName ?? a.accountId.replace("act_", "") }));
+    })
   );
   return results.flat();
 }

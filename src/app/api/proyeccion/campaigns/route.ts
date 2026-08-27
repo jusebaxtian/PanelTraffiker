@@ -6,6 +6,7 @@ export async function GET() {
     const campaigns = await fetchAllAccountsCampaigns();
     const data = campaigns.map((c) => ({
       account_id: c.account_id,
+      account_name: c.account_name,
       campaign_id: c.id,
       campaign_name: c.name,
       status: c.effective_status ?? c.status,
