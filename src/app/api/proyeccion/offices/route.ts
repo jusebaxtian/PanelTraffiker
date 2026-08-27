@@ -2,35 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { fetchAllAccountsInsights } from "@/lib/metaAds";
 import { countContactsByTagInMonth } from "@/lib/ghl";
-import { computeOffice, type CampaignRef, type ProyeccionOffice } from "@/lib/proyeccion";
+import { computeOffice, monthRange, type CampaignRef, type ProyeccionOffice } from "@/lib/proyeccion";
 import { officeTotal } from "@/lib/distribucion";
-import { BOGOTA_UTC_OFFSET_MS } from "@/lib/bogota";
 import { requireWriteAccess } from "@/lib/auth";
 
 interface AgentRow {
   office_id: string;
   type: "junior" | "ejecutivo";
   custom_value: number | null;
-}
-
-function pad2(n: number) {
-  return String(n).padStart(2, "0");
-}
-
-// El rango debe corresponder al mes seleccionado (month_key = "YYYY-MM"),
-// alineado a la hora legal de Colombia (Bogotá, UTC-5 sin horario de
-// verano), y no ir más allá de "ahora" para que los datos sean siempre
-// los reales hasta el momento (en vivo).
-function monthRange(monthKey: string) {
-  const [year, month] = monthKey.split("-").map(Number);
-  const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0) + BOGOTA_UTC_OFFSET_MS);
-  const monthEndBoundary = new Date(Date.UTC(year, month, 1, 0, 0, 0) + BOGOTA_UTC_OFFSET_MS);
-  const now = new Date();
-  const end = monthEndBoundary < now ? monthEndBoundary : now;
-  const lastDay = new Date(year, month, 0).getDate();
-  const since = `${year}-${pad2(month)}-01`;
-  const until = `${year}-${pad2(month)}-${pad2(lastDay)}`;
-  return { start, end, since, until };
 }
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
@@ -54,6 +33,9 @@ function rowToOffice(row: {
   crm_connection_id: string | null;
   config_id: string;
   position: number;
+  gasto_final: number | null;
+  leads_final: number | null;
+  diario_final: number | null;
 }): ProyeccionOffice {
   return {
     id: row.id,
@@ -65,6 +47,9 @@ function rowToOffice(row: {
     crm_connection_id: row.crm_connection_id,
     config_id: row.config_id,
     position: row.position,
+    gasto_final: row.gasto_final,
+    leads_final: row.leads_final,
+    diario_final: row.diario_final,
   };
 }
 
@@ -121,6 +106,28 @@ export async function GET(request: NextRequest) {
   const crmConnectionById = new Map(
     (crmConnections ?? []).map((c: { id: string; location_id: string; access_token: string }) => [c.id, c])
   );
+
+  // Mes cerrado: no se vuelve a consultar Meta/GHL nunca más para este
+  // mes. Los valores quedan tomados de las columnas congeladas al cerrar
+  // (editables a mano mientras el cierre está desbloqueado).
+  if (config.closed) {
+    const data = offices.map((office) => {
+      const diario = office.diario_final ?? 0;
+      const gastoDelMes = office.gasto_final ?? 0;
+      const leadsDelMes = office.leads_final ?? 0;
+      return computeOffice(office, diario, gastoDelMes, leadsDelMes, diasFaltantes, costoFtdMes);
+    });
+    return NextResponse.json({
+      data,
+      cache: {
+        updatedAt: config.closed_at,
+        forceRemaining: 0,
+        nextWindowAt: config.closed_at,
+        closed: true,
+        locked: config.locked,
+      },
+    });
+  }
 
   // El gasto de Meta y los leads de GHL se guardan en caché por mes
   // (proyeccion_metrics_cache) durante 30 minutos, para no consultar esas

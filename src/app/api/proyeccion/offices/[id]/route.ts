@@ -22,6 +22,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if ("distribucion_office_id" in body) updates.distribucion_office_id = body.distribucion_office_id || null;
     if ("ghl_tag" in body) updates.ghl_tag = body.ghl_tag || null;
     if ("crm_connection_id" in body) updates.crm_connection_id = body.crm_connection_id || null;
+    // Ajustes manuales sobre un mes ya cerrado (gasto/leads/$ diario
+    // congelados, editables mientras el cierre está desbloqueado).
+    if (typeof body.gasto_final === "number") updates.gasto_final = body.gasto_final;
+    if (typeof body.leads_final === "number") updates.leads_final = body.leads_final;
+    if (typeof body.diario_final === "number") updates.diario_final = body.diario_final;
   }
   if (typeof body.ftd_real === "number") updates.ftd_real = body.ftd_real;
 

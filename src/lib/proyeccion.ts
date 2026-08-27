@@ -1,9 +1,34 @@
+import { BOGOTA_UTC_OFFSET_MS } from "@/lib/bogota";
+
 export interface ProyeccionConfig {
   id: string;
   month_key: string;
   month_label: string;
   days_remaining: number;
   costo_ftd_mes: number;
+  closed: boolean;
+  locked: boolean;
+  closed_at: string | null;
+}
+
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+// El rango debe corresponder al mes seleccionado (month_key = "YYYY-MM"),
+// alineado a la hora legal de Colombia (Bogotá, UTC-5 sin horario de
+// verano), y no ir más allá de "ahora" para que los datos sean siempre
+// los reales hasta el momento (en vivo).
+export function monthRange(monthKey: string) {
+  const [year, month] = monthKey.split("-").map(Number);
+  const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0) + BOGOTA_UTC_OFFSET_MS);
+  const monthEndBoundary = new Date(Date.UTC(year, month, 1, 0, 0, 0) + BOGOTA_UTC_OFFSET_MS);
+  const now = new Date();
+  const end = monthEndBoundary < now ? monthEndBoundary : now;
+  const lastDay = new Date(year, month, 0).getDate();
+  const since = `${year}-${pad2(month)}-01`;
+  const until = `${year}-${pad2(month)}-${pad2(lastDay)}`;
+  return { start, end, since, until };
 }
 
 // El nombre del mes se deriva siempre de month_key ("YYYY-MM"), ya no es
@@ -30,6 +55,12 @@ export interface ProyeccionOffice {
   crm_connection_id: string | null;
   config_id: string;
   position: number;
+  // Solo tienen valor una vez que el mes se cierra: congelan el gasto,
+  // los leads y el $ diario que hasta ese momento venían en vivo, y
+  // quedan editables a mano mientras el cierre está en modo edición.
+  gasto_final: number | null;
+  leads_final: number | null;
+  diario_final: number | null;
 }
 
 export interface ProyeccionOfficeComputed extends ProyeccionOffice {

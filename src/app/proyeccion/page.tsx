@@ -14,6 +14,9 @@ interface Config {
   month_label: string;
   days_remaining: number;
   costo_ftd_mes: number;
+  closed: boolean;
+  locked: boolean;
+  closed_at: string | null;
 }
 
 interface MonthOption {
@@ -58,6 +61,7 @@ export default function ProyeccionPage() {
   const [officePickerForId, setOfficePickerForId] = useState<string | null>(null);
   const [crmPickerForId, setCrmPickerForId] = useState<string | null>(null);
   const [cacheInfo, setCacheInfo] = useState<{ updatedAt: string; forceRemaining: number; nextWindowAt: string } | null>(null);
+  const [closing, setClosing] = useState(false);
 
   function loadConfig(monthKey: string) {
     return fetch(`/api/proyeccion/config/${monthKey}`)
@@ -152,6 +156,24 @@ export default function ProyeccionPage() {
       setMonths((prev) => prev.map((m) => (m.id === json.data.id ? { ...m, month_label: json.data.month_label } : m)));
       loadOffices(json.data.id, true);
     }
+  }
+
+  async function setMonthClosed(action: "close" | "reopen") {
+    if (!config) return;
+    setClosing(true);
+    const res = await fetch(`/api/proyeccion/config/${config.month_key}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    const json = await res.json();
+    setClosing(false);
+    if (json.error) {
+      setError(json.error);
+      return;
+    }
+    setConfig(json.data);
+    loadOffices(json.data.id, true);
   }
 
   async function createOffice() {
@@ -272,7 +294,7 @@ export default function ProyeccionPage() {
         )}
 
         <div className="mb-6 flex flex-wrap items-center gap-2">
-          {isSuperAdmin && (
+          {isSuperAdmin && !config?.closed && (
             <>
               <input
                 type="text"
@@ -293,20 +315,69 @@ export default function ProyeccionPage() {
               </button>
             </>
           )}
-          <button
-            onClick={refresh}
-            disabled={refreshing || (cacheInfo?.forceRemaining ?? 1) <= 0}
-            title={
-              (cacheInfo?.forceRemaining ?? 1) <= 0
-                ? "Ya usaste las actualizaciones manuales disponibles — espera a que se renueve el caché (cada 30 min)"
-                : undefined
-            }
-            className="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
-            style={{ background: "var(--surface)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
-          >
-            {refreshing ? "Actualizando..." : "↻ Actualizar"}
-          </button>
-          {cacheInfo && <CacheStatus cacheInfo={cacheInfo} />}
+          {!config?.closed && (
+            <button
+              onClick={refresh}
+              disabled={refreshing || (cacheInfo?.forceRemaining ?? 1) <= 0}
+              title={
+                (cacheInfo?.forceRemaining ?? 1) <= 0
+                  ? "Ya usaste las actualizaciones manuales disponibles — espera a que se renueve el caché (cada 30 min)"
+                  : undefined
+              }
+              className="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
+              style={{ background: "var(--surface)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
+            >
+              {refreshing ? "Actualizando..." : "↻ Actualizar"}
+            </button>
+          )}
+          {!config?.closed && cacheInfo && <CacheStatus cacheInfo={cacheInfo} />}
+
+          {isSuperAdmin && config && !config.closed && (
+            <button
+              onClick={() => setMonthClosed("close")}
+              disabled={closing}
+              title="Congela el gasto, los leads y el $ diario en vivo, y deja los valores listos para ajustar a mano"
+              className="ml-auto rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
+              style={{ background: "var(--critical)", color: "#ffffff" }}
+            >
+              {closing ? "Cerrando..." : "🔒 Cerrar mes"}
+            </button>
+          )}
+          {isSuperAdmin && config?.closed && config.locked && (
+            <>
+              <span className="ml-auto text-xs" style={{ color: "var(--text-muted)" }}>
+                Mes cerrado{config.closed_at ? ` · ${new Date(config.closed_at).toLocaleString("es-CO")}` : ""} — datos congelados
+              </span>
+              <button
+                onClick={() => setMonthClosed("reopen")}
+                disabled={closing}
+                className="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
+                style={{ background: "var(--surface)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
+              >
+                🔓 Reabrir mes
+              </button>
+            </>
+          )}
+          {isSuperAdmin && config?.closed && !config.locked && (
+            <>
+              <span className="ml-auto text-xs" style={{ color: "var(--series-3)" }}>
+                Editando cierre — nada en vivo, los cambios se guardan directo
+              </span>
+              <button
+                onClick={() => setMonthClosed("close")}
+                disabled={closing}
+                className="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
+                style={{ background: "var(--brand)", color: "#ffffff" }}
+              >
+                {closing ? "Guardando..." : "🔒 Bloquear cierre"}
+              </button>
+            </>
+          )}
+          {!isSuperAdmin && config?.closed && (
+            <span className="ml-auto text-xs" style={{ color: "var(--text-muted)" }}>
+              Mes cerrado{config.closed_at ? ` · ${new Date(config.closed_at).toLocaleString("es-CO")}` : ""}
+            </span>
+          )}
         </div>
 
         {loading && <p style={{ color: "var(--text-secondary)" }}>Cargando...</p>}
@@ -376,6 +447,8 @@ export default function ProyeccionPage() {
                       onDelete={() => deleteOffice(o.id)}
                       crmConnections={crmConnections}
                       isSuperAdmin={isSuperAdmin}
+                      closed={config?.closed ?? false}
+                      editable={!!config?.closed && !config.locked}
                       onOpenCampaignPicker={() => setCampaignPickerForId(o.id)}
                       onOpenOfficePicker={() => setOfficePickerForId(o.id)}
                       onOpenCrmPicker={() => setCrmPickerForId(o.id)}
@@ -446,6 +519,8 @@ function OfficeRow({
   onUpdate,
   onDelete,
   isSuperAdmin,
+  closed,
+  editable,
   onOpenCampaignPicker,
   onOpenOfficePicker,
   onOpenCrmPicker,
@@ -457,6 +532,8 @@ function OfficeRow({
   onUpdate: (updates: Record<string, unknown>) => void;
   onDelete: () => void;
   isSuperAdmin: boolean;
+  closed: boolean;
+  editable: boolean;
   onOpenCampaignPicker: () => void;
   onOpenOfficePicker: () => void;
   onOpenCrmPicker: () => void;
@@ -482,19 +559,19 @@ function OfficeRow({
           className="w-full rounded px-1 py-0.5 text-sm font-medium outline-none disabled:opacity-70"
           style={{ ...inputStyle, color: "var(--text-primary)" }}
         />
-        {isSuperAdmin && (
+        {isSuperAdmin && !closed && (
           <button onClick={onOpenCampaignPicker} className="mt-0.5 block text-xs" style={{ color: "var(--brand)" }}>
             {office.campaigns.length} campaña{office.campaigns.length !== 1 ? "s" : ""} ✎
           </button>
         )}
-        {!isSuperAdmin && (
+        {(!isSuperAdmin || closed) && (
           <span className="mt-0.5 block text-xs" style={{ color: "var(--text-muted)" }}>
             {office.campaigns.length} campaña{office.campaigns.length !== 1 ? "s" : ""}
           </span>
         )}
       </td>
       <td className="px-3 py-2">
-        {isSuperAdmin ? (
+        {isSuperAdmin && !closed ? (
           <button
             onClick={onOpenOfficePicker}
             className="block w-full truncate rounded px-1 py-0.5 text-left text-sm outline-none"
@@ -507,12 +584,33 @@ function OfficeRow({
             {linkedOfficeName ?? "Sin vincular"}
           </span>
         )}
-        <div className="mt-0.5 text-xs" style={{ color: "var(--text-muted)" }}>
-          $ Diario: <span style={{ color: "var(--text-primary)" }}>{currency(office.diario)}</span>
+        <div className="mt-0.5 flex items-center gap-1 text-xs" style={{ color: "var(--text-muted)" }}>
+          $ Diario:
+          {editable ? (
+            <input
+              type="number"
+              defaultValue={office.diario}
+              onBlur={(e) => onUpdate({ diario_final: Number(e.target.value) || 0 })}
+              className="w-24 rounded px-1 py-0.5 text-xs outline-none"
+              style={{ ...inputStyle, color: "var(--text-primary)" }}
+            />
+          ) : (
+            <span style={{ color: "var(--text-primary)" }}>{currency(office.diario)}</span>
+          )}
         </div>
       </td>
       <td className="px-3 py-2 font-medium" style={{ ...cellStyle, color: "var(--text-primary)" }}>
-        {currency(office.gasto_total_hoy)}
+        {editable ? (
+          <input
+            type="number"
+            defaultValue={office.gasto_total_hoy}
+            onBlur={(e) => onUpdate({ gasto_final: Number(e.target.value) || 0 })}
+            className="w-full rounded px-1 py-0.5 text-sm font-medium outline-none"
+            style={{ ...inputStyle, color: "var(--text-primary)" }}
+          />
+        ) : (
+          currency(office.gasto_total_hoy)
+        )}
       </td>
       <td className="px-3 py-2" style={cellStyle}>
         {currency(office.proyeccion_cierre)}
@@ -521,8 +619,18 @@ function OfficeRow({
         {currency(office.gasto_proyeccion)}
       </td>
       <td className="px-3 py-2" style={{ ...cellStyle, color: "var(--series-2)" }}>
-        {number(office.leads_crm)}
-        {isSuperAdmin ? (
+        {editable ? (
+          <input
+            type="number"
+            defaultValue={office.leads_crm}
+            onBlur={(e) => onUpdate({ leads_final: Number(e.target.value) || 0 })}
+            className="w-full rounded px-1 py-0.5 text-sm outline-none"
+            style={{ ...inputStyle, color: "var(--series-2)" }}
+          />
+        ) : (
+          number(office.leads_crm)
+        )}
+        {isSuperAdmin && !closed ? (
           <button
             onClick={onOpenCrmPicker}
             className="mt-0.5 block truncate text-left text-xs"
@@ -564,7 +672,7 @@ function OfficeRow({
       <td className="px-3 py-2" style={cellStyle}>
         {number(office.ftd_meta_mes)}
       </td>
-      <td className="px-3 py-2 text-right">{isSuperAdmin && <DeleteButton onConfirm={onDelete} />}</td>
+      <td className="px-3 py-2 text-right">{isSuperAdmin && !closed && <DeleteButton onConfirm={onDelete} />}</td>
     </tr>
   );
 }
