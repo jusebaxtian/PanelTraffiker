@@ -35,6 +35,95 @@ export async function getAllAdAccountConnections(): Promise<AdAccountConnection[
   return [...envAccounts, ...dbAccounts];
 }
 
+export interface AdAccountBilling {
+  accountId: string;
+  name: string;
+  businessName: string | null;
+  currency: string;
+  amountSpent: number;
+  spendCap: number;
+  balance: number;
+  accountStatus: number;
+  disableReason: number;
+  error: string | null;
+}
+
+interface BatchResponseItem {
+  code: number;
+  body: string;
+}
+
+const BILLING_FIELDS = "name,account_id,currency,amount_spent,spend_cap,balance,account_status,disable_reason,business_name";
+
+// Trae el estado de facturación (saldo pendiente, estado de cuenta, gasto
+// total) de TODAS las cuentas publicitarias en una sola llamada HTTP a
+// Meta, usando el "Batch API" — evita hacer una consulta por cuenta
+// aunque cada una use un token distinto (cada ítem del batch lleva su
+// propio access_token).
+export async function fetchAllAccountsBilling(): Promise<AdAccountBilling[]> {
+  const accounts = await getAllAdAccountConnections();
+  if (accounts.length === 0) return [];
+
+  const batch = accounts.map((a) => ({
+    method: "GET",
+    relative_url: `${a.accountId}?fields=${BILLING_FIELDS}`,
+    access_token: a.accessToken,
+  }));
+
+  const umbrellaToken = accounts[0].accessToken;
+  const res = await fetch(META_BASE_URL, {
+    method: "POST",
+    body: new URLSearchParams({ access_token: umbrellaToken, batch: JSON.stringify(batch) }),
+  });
+  const items: BatchResponseItem[] = await res.json();
+
+  return accounts.map((a, i) => {
+    const item = items?.[i];
+    if (!item || item.code !== 200) {
+      return {
+        accountId: a.accountId,
+        name: a.name ?? a.accountId.replace("act_", ""),
+        businessName: null,
+        currency: "",
+        amountSpent: 0,
+        spendCap: 0,
+        balance: 0,
+        accountStatus: 0,
+        disableReason: 0,
+        error: "No se pudo consultar esta cuenta",
+      };
+    }
+    try {
+      const data = JSON.parse(item.body);
+      return {
+        accountId: data.account_id ?? a.accountId,
+        name: data.name ?? a.name ?? a.accountId,
+        businessName: data.business_name || null,
+        currency: data.currency ?? "",
+        amountSpent: Number(data.amount_spent ?? 0),
+        spendCap: Number(data.spend_cap ?? 0),
+        balance: Number(data.balance ?? 0),
+        accountStatus: Number(data.account_status ?? 0),
+        disableReason: Number(data.disable_reason ?? 0),
+        error: null,
+      };
+    } catch {
+      return {
+        accountId: a.accountId,
+        name: a.name ?? a.accountId,
+        businessName: null,
+        currency: "",
+        amountSpent: 0,
+        spendCap: 0,
+        balance: 0,
+        accountStatus: 0,
+        disableReason: 0,
+        error: "Respuesta inválida de Meta",
+      };
+    }
+  });
+}
+
 // Nombre real de la cuenta publicitaria en Meta, para las que no se
 // agregaron con un nombre propio (cuentas legado por variable de entorno).
 export async function fetchAccountName(adAccountId: string, accessToken: string): Promise<string | null> {

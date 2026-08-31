@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { label: "Proyección", href: "/proyeccion", key: "proyeccion" },
   { label: "Gráficos", href: "/graficos", key: "graficos" },
   { label: "Status API", href: "/status-api", key: "status-api" },
+  { label: "Status Ads", href: "/status-ads", key: "status-ads" },
 ] as const;
 
 interface CurrentUser {
