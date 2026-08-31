@@ -55,73 +55,88 @@ interface BatchResponseItem {
 
 const BILLING_FIELDS = "name,account_id,currency,amount_spent,spend_cap,balance,account_status,disable_reason,business_name";
 
+function billingErrorRow(a: AdAccountConnection, message: string): AdAccountBilling {
+  return {
+    accountId: a.accountId,
+    name: a.name ?? a.accountId.replace("act_", ""),
+    businessName: null,
+    currency: "",
+    amountSpent: 0,
+    spendCap: 0,
+    balance: 0,
+    accountStatus: 0,
+    disableReason: 0,
+    error: message,
+  };
+}
+
+function billingRowFromMeta(a: AdAccountConnection, data: Record<string, unknown>): AdAccountBilling {
+  return {
+    accountId: (data.account_id as string) ?? a.accountId,
+    name: (data.name as string) ?? a.name ?? a.accountId,
+    businessName: (data.business_name as string) || null,
+    currency: (data.currency as string) ?? "",
+    amountSpent: Number(data.amount_spent ?? 0),
+    spendCap: Number(data.spend_cap ?? 0),
+    balance: Number(data.balance ?? 0),
+    accountStatus: Number(data.account_status ?? 0),
+    disableReason: Number(data.disable_reason ?? 0),
+    error: null,
+  };
+}
+
 // Trae el estado de facturación (saldo pendiente, estado de cuenta, gasto
-// total) de TODAS las cuentas publicitarias en una sola llamada HTTP a
-// Meta, usando el "Batch API" — evita hacer una consulta por cuenta
-// aunque cada una use un token distinto (cada ítem del batch lleva su
-// propio access_token).
+// total) de todas las cuentas publicitarias usando el "Batch API" de Meta,
+// para no hacer una llamada HTTP por cuenta. El batch de Meta exige que el
+// access_token "paraguas" de la petición sea de la MISMA app que los
+// tokens de cada ítem (si no, responde 403 aunque el ítem lleve su propio
+// token) — así que se agrupa por token: una sola llamada batch por cada
+// token distinto, no una por cuenta.
 export async function fetchAllAccountsBilling(): Promise<AdAccountBilling[]> {
   const accounts = await getAllAdAccountConnections();
   if (accounts.length === 0) return [];
 
-  const batch = accounts.map((a) => ({
-    method: "GET",
-    relative_url: `${a.accountId}?fields=${BILLING_FIELDS}`,
-    access_token: a.accessToken,
-  }));
+  const groups = new Map<string, AdAccountConnection[]>();
+  for (const a of accounts) {
+    if (!groups.has(a.accessToken)) groups.set(a.accessToken, []);
+    groups.get(a.accessToken)!.push(a);
+  }
 
-  const umbrellaToken = accounts[0].accessToken;
-  const res = await fetch(META_BASE_URL, {
-    method: "POST",
-    body: new URLSearchParams({ access_token: umbrellaToken, batch: JSON.stringify(batch) }),
-  });
-  const items: BatchResponseItem[] = await res.json();
+  const resultByAccountId = new Map<string, AdAccountBilling>();
 
-  return accounts.map((a, i) => {
-    const item = items?.[i];
-    if (!item || item.code !== 200) {
-      return {
-        accountId: a.accountId,
-        name: a.name ?? a.accountId.replace("act_", ""),
-        businessName: null,
-        currency: "",
-        amountSpent: 0,
-        spendCap: 0,
-        balance: 0,
-        accountStatus: 0,
-        disableReason: 0,
-        error: "No se pudo consultar esta cuenta",
-      };
-    }
-    try {
-      const data = JSON.parse(item.body);
-      return {
-        accountId: data.account_id ?? a.accountId,
-        name: data.name ?? a.name ?? a.accountId,
-        businessName: data.business_name || null,
-        currency: data.currency ?? "",
-        amountSpent: Number(data.amount_spent ?? 0),
-        spendCap: Number(data.spend_cap ?? 0),
-        balance: Number(data.balance ?? 0),
-        accountStatus: Number(data.account_status ?? 0),
-        disableReason: Number(data.disable_reason ?? 0),
-        error: null,
-      };
-    } catch {
-      return {
-        accountId: a.accountId,
-        name: a.name ?? a.accountId,
-        businessName: null,
-        currency: "",
-        amountSpent: 0,
-        spendCap: 0,
-        balance: 0,
-        accountStatus: 0,
-        disableReason: 0,
-        error: "Respuesta inválida de Meta",
-      };
-    }
-  });
+  await Promise.all(
+    Array.from(groups.entries()).map(async ([token, groupAccounts]) => {
+      const batch = groupAccounts.map((a) => ({
+        method: "GET",
+        relative_url: `${a.accountId}?fields=${BILLING_FIELDS}`,
+      }));
+
+      try {
+        const res = await fetch(META_BASE_URL, {
+          method: "POST",
+          body: new URLSearchParams({ access_token: token, batch: JSON.stringify(batch) }),
+        });
+        const items: BatchResponseItem[] = await res.json();
+
+        groupAccounts.forEach((a, i) => {
+          const item = items?.[i];
+          if (!item || item.code !== 200) {
+            resultByAccountId.set(a.accountId, billingErrorRow(a, "No se pudo consultar esta cuenta"));
+            return;
+          }
+          try {
+            resultByAccountId.set(a.accountId, billingRowFromMeta(a, JSON.parse(item.body)));
+          } catch {
+            resultByAccountId.set(a.accountId, billingErrorRow(a, "Respuesta inválida de Meta"));
+          }
+        });
+      } catch {
+        groupAccounts.forEach((a) => resultByAccountId.set(a.accountId, billingErrorRow(a, "No se pudo consultar esta cuenta")));
+      }
+    })
+  );
+
+  return accounts.map((a) => resultByAccountId.get(a.accountId) ?? billingErrorRow(a, "No se pudo consultar esta cuenta"));
 }
 
 // Nombre real de la cuenta publicitaria en Meta, para las que no se
