@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AdInsight } from "@/lib/metaAds";
 import { conversationsStarted, video3SecWatchRate, videoAvgTimeWatched } from "@/lib/metaAds";
+import DateRangePicker, { type DateRange } from "@/components/DateRangePicker";
 
 interface EnrichedInsight extends AdInsight {
   result: number;
@@ -124,7 +125,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [datePreset, setDatePreset] = useState<string>("last_7d");
-  const [customRange, setCustomRange] = useState<{ since: string; until: string } | null>(null);
+  const [customRange, setCustomRange] = useState<DateRange | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
   const { widths, startResize } = useColumnWidths();
@@ -225,35 +226,7 @@ export default function Home() {
             );
           })}
 
-          <div
-            className="flex items-center gap-2 rounded-full px-3 py-1.5"
-            style={{
-              background: customRange ? "var(--brand)" : "var(--surface)",
-              border: `1px solid ${customRange ? "var(--brand)" : "var(--border)"}`,
-            }}
-          >
-            <input
-              type="date"
-              aria-label="Desde"
-              value={customRange?.since ?? ""}
-              onChange={(e) =>
-                setCustomRange((prev) => ({ since: e.target.value, until: prev?.until ?? e.target.value }))
-              }
-              className="bg-transparent text-sm outline-none"
-              style={{ color: customRange ? "#ffffff" : "var(--text-secondary)", colorScheme: "dark" }}
-            />
-            <span style={{ color: customRange ? "#ffffff" : "var(--text-muted)" }}>–</span>
-            <input
-              type="date"
-              aria-label="Hasta"
-              value={customRange?.until ?? ""}
-              onChange={(e) =>
-                setCustomRange((prev) => ({ since: prev?.since ?? e.target.value, until: e.target.value }))
-              }
-              className="bg-transparent text-sm outline-none"
-              style={{ color: customRange ? "#ffffff" : "var(--text-secondary)", colorScheme: "dark" }}
-            />
-          </div>
+          <DateRangePicker value={customRange} onChange={setCustomRange} />
         </div>
 
         <div className="mb-6 flex flex-wrap gap-2">
