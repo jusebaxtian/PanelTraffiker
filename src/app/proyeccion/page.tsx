@@ -344,19 +344,14 @@ export default function ProyeccionPage() {
             </button>
           )}
           {isSuperAdmin && config?.closed && config.locked && (
-            <>
-              <span className="ml-auto text-xs" style={{ color: "var(--text-muted)" }}>
-                Mes cerrado{config.closed_at ? ` · ${new Date(config.closed_at).toLocaleString("es-CO")}` : ""} — datos congelados
-              </span>
-              <button
-                onClick={() => setMonthClosed("reopen")}
-                disabled={closing}
-                className="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
-                style={{ background: "var(--surface)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
-              >
-                🔓 Reabrir mes
-              </button>
-            </>
+            <button
+              onClick={() => setMonthClosed("reopen")}
+              disabled={closing}
+              className="ml-auto rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
+              style={{ background: "var(--surface)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
+            >
+              🔓 Reabrir mes
+            </button>
           )}
           {isSuperAdmin && config?.closed && !config.locked && (
             <>
@@ -372,11 +367,6 @@ export default function ProyeccionPage() {
                 {closing ? "Guardando..." : "🔒 Bloquear cierre"}
               </button>
             </>
-          )}
-          {!isSuperAdmin && config?.closed && (
-            <span className="ml-auto text-xs" style={{ color: "var(--text-muted)" }}>
-              Mes cerrado{config.closed_at ? ` · ${new Date(config.closed_at).toLocaleString("es-CO")}` : ""}
-            </span>
           )}
         </div>
 
@@ -655,7 +645,8 @@ function OfficeRow({
           type="number"
           defaultValue={office.ftd_real}
           onBlur={(e) => onUpdate({ ftd_real: Number(e.target.value) || 0 })}
-          className="w-full rounded px-1 py-0.5 text-sm font-medium outline-none"
+          disabled={closed && !editable}
+          className="w-full rounded px-1 py-0.5 text-sm font-medium outline-none disabled:opacity-70"
           style={{ ...inputStyle, color: "var(--good)" }}
         />
       </td>
