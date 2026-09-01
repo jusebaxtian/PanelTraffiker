@@ -10,6 +10,24 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const supabase = supabaseServer();
   const body = await request.json();
 
+  // Con el mes cerrado y bloqueado, ningún campo se edita — hay que
+  // reabrirlo primero. Reabierto, sí se puede ajustar todo a mano.
+  const { data: office } = await supabase
+    .from("proyeccion_offices")
+    .select("config_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (office) {
+    const { data: config } = await supabase
+      .from("proyeccion_config")
+      .select("closed, locked")
+      .eq("id", office.config_id)
+      .maybeSingle();
+    if (config?.closed && config.locked) {
+      return NextResponse.json({ error: "El mes está cerrado — reábrelo para editar" }, { status: 403 });
+    }
+  }
+
   // El rol admin es de solo lectura en toda la app, salvo este campo:
   // puede actualizar FTDs Real en Proyección. Cualquier otro campo en el
   // body se ignora si no es SuperAdmin.
