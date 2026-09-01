@@ -7,6 +7,7 @@ import CampaignPicker from "@/components/CampaignPicker";
 import OfficePicker from "@/components/OfficePicker";
 import CrmTagPicker from "@/components/CrmTagPicker";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import ScrollDropdown from "@/components/ScrollDropdown";
 
 interface DistribucionOffice {
   id: string;
@@ -191,18 +192,11 @@ export default function ReporteDiarioPage() {
           >
             <label className="flex items-center gap-2 text-sm">
               <span style={{ color: "var(--text-muted)" }}>Día</span>
-              <select
-                value={selectedDate ?? ""}
-                onChange={(e) => selectDate(e.target.value)}
-                className="rounded-md px-2 py-1 text-sm outline-none"
-                style={{ background: "var(--page)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
-              >
-                {dates.map((d) => (
-                  <option key={d} value={d}>
-                    {visualDate(d, yesterday)}
-                  </option>
-                ))}
-              </select>
+              <ScrollDropdown
+                value={selectedDate}
+                onChange={selectDate}
+                options={dates.map((d) => ({ value: d, label: visualDate(d, yesterday) }))}
+              />
             </label>
             {selectedDate && (
               <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>

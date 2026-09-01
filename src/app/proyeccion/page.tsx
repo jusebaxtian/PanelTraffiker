@@ -8,6 +8,7 @@ import OfficePicker from "@/components/OfficePicker";
 import CrmTagPicker from "@/components/CrmTagPicker";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { bogotaNowClient } from "@/lib/bogota";
+import ScrollDropdown from "@/components/ScrollDropdown";
 
 interface Config {
   id: string;
@@ -255,18 +256,11 @@ export default function ProyeccionPage() {
           >
             <label className="flex items-center gap-2 text-sm">
               <span style={{ color: "var(--text-muted)" }}>Mes</span>
-              <select
-                value={selectedMonthKey ?? ""}
-                onChange={(e) => selectMonth(e.target.value)}
-                className="rounded-md px-2 py-1 text-sm outline-none"
-                style={{ background: "var(--page)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
-              >
-                {months.map((m) => (
-                  <option key={m.month_key} value={m.month_key}>
-                    {m.month_label}
-                  </option>
-                ))}
-              </select>
+              <ScrollDropdown
+                value={selectedMonthKey}
+                onChange={selectMonth}
+                options={months.map((m) => ({ value: m.month_key, label: m.month_label }))}
+              />
             </label>
             <label className="flex items-center gap-2 text-sm">
               <span style={{ color: "var(--series-3)", fontWeight: 600 }}>Días faltantes</span>
