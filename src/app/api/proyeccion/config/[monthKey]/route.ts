@@ -5,6 +5,7 @@ import { fetchAllAccountsInsights } from "@/lib/metaAds";
 import { countContactsByTagInMonth } from "@/lib/ghl";
 import { officeTotal } from "@/lib/distribucion";
 import { requireModuleWriteAccess, requireWriteAccess } from "@/lib/auth";
+import { bogotaMonthKey, bogotaNowServer } from "@/lib/bogota";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ monthKey: string }> }) {
   const { monthKey } = await params;
@@ -130,6 +131,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     if (body.action === "close") {
       if (!current.closed) {
+        // El mes en curso solo se puede cerrar el último día (hora de
+        // Colombia), para evitar cerrarlo por error a mitad de mes. Un
+        // mes ya pasado siempre se puede cerrar.
+        const nowBogota = bogotaNowServer();
+        const isCurrentMonth = monthKey === bogotaMonthKey(nowBogota);
+        if (isCurrentMonth) {
+          const lastDayOfMonth = new Date(Date.UTC(nowBogota.getUTCFullYear(), nowBogota.getUTCMonth() + 1, 0)).getUTCDate();
+          if (nowBogota.getUTCDate() !== lastDayOfMonth) {
+            return NextResponse.json(
+              { error: "El mes en curso solo se puede cerrar el último día del mes" },
+              { status: 400 }
+            );
+          }
+        }
         await freezeMonth(current.id, monthKey);
         updates.closed = true;
         updates.closed_at = new Date().toISOString();

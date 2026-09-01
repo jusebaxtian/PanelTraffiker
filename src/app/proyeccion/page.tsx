@@ -7,6 +7,7 @@ import CampaignPicker from "@/components/CampaignPicker";
 import OfficePicker from "@/components/OfficePicker";
 import CrmTagPicker from "@/components/CrmTagPicker";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { bogotaNowClient } from "@/lib/bogota";
 
 interface Config {
   id: string;
@@ -223,6 +224,15 @@ export default function ProyeccionPage() {
     { gasto_total_hoy: 0, total_mes: 0, leads_crm: 0, ftd_real: 0, ftd_estimado: 0 }
   );
 
+  // El mes en curso solo se puede cerrar el último día (hora de
+  // Colombia), para no cerrarlo por error a mitad de mes. Un mes ya
+  // pasado (meses anteriores) siempre se puede cerrar.
+  const now = bogotaNowClient();
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const isCurrentMonth = config?.month_key === currentMonthKey;
+  const canCloseMonth = !isCurrentMonth || now.getDate() === lastDayOfMonth;
+
   return (
     <div className="min-h-screen" style={{ background: "var(--page)" }}>
       <header
@@ -332,7 +342,7 @@ export default function ProyeccionPage() {
           )}
           {!config?.closed && cacheInfo && <CacheStatus cacheInfo={cacheInfo} />}
 
-          {isSuperAdmin && config && !config.closed && (
+          {isSuperAdmin && config && !config.closed && canCloseMonth && (
             <button
               onClick={() => setMonthClosed("close")}
               disabled={closing}
@@ -342,6 +352,11 @@ export default function ProyeccionPage() {
             >
               {closing ? "Cerrando..." : "🔒 Cerrar mes"}
             </button>
+          )}
+          {isSuperAdmin && config && !config.closed && !canCloseMonth && (
+            <span className="ml-auto text-xs" style={{ color: "var(--text-muted)" }}>
+              El cierre se habilita el último día del mes
+            </span>
           )}
           {isSuperAdmin && config?.closed && config.locked && (
             <button
