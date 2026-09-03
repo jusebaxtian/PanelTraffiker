@@ -99,7 +99,8 @@ export default function StatusAdsPage() {
     );
   }, [accounts, search]);
 
-  const withDebt = accounts.filter((a) => a.balance > 0).length;
+  const totalPending = accounts.reduce((sum, a) => sum + (a.error ? 0 : a.balance), 0);
+  const pendingCurrency = accounts.find((a) => a.currency)?.currency ?? "COP";
   const withIssues = accounts.filter((a) => a.error || a.accountStatus !== 1).length;
 
   return (
@@ -120,7 +121,7 @@ export default function StatusAdsPage() {
         {!loading && !error && (
           <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
             <StatTile label="Cuentas vinculadas" value={String(accounts.length)} />
-            <StatTile label="Con saldo pendiente" value={String(withDebt)} accent="var(--series-3)" />
+            <StatTile label="Saldo pendiente" value={currency(totalPending, pendingCurrency)} accent="var(--series-3)" />
             <StatTile label="Con problema de estado" value={String(withIssues)} accent="var(--critical)" />
           </div>
         )}
@@ -164,7 +165,7 @@ export default function StatusAdsPage() {
               <table className="w-full text-left text-sm" style={{ minWidth: 760 }}>
                 <thead>
                   <tr style={{ borderBottom: "1px solid var(--gridline)" }}>
-                    {["Nombre", "Estado", "Saldo pendiente", "Gastado total"].map((h) => (
+                    {["Nombre", "Estado", "Saldo pendiente"].map((h) => (
                       <th
                         key={h}
                         className="px-4 py-3 text-xs font-medium uppercase tracking-wide"
@@ -210,15 +211,12 @@ export default function StatusAdsPage() {
                         >
                           {a.error ? "-" : currency(a.balance, a.currency)}
                         </td>
-                        <td className="px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
-                          {a.error ? "-" : currency(a.amountSpent, a.currency)}
-                        </td>
                       </tr>
                     );
                   })}
                   {filtered.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="px-4 py-6 text-center" style={{ color: "var(--text-muted)" }}>
+                      <td colSpan={3} className="px-4 py-6 text-center" style={{ color: "var(--text-muted)" }}>
                         {accounts.length === 0 ? "No hay cuentas publicitarias vinculadas todavía." : "Ninguna cuenta coincide con la búsqueda."}
                       </td>
                     </tr>
