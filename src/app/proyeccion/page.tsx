@@ -400,6 +400,7 @@ export default function ProyeccionPage() {
                   <col style={{ width: 130 }} />
                   <col style={{ width: 140 }} />
                   <col style={{ width: 170 }} />
+                  <col style={{ width: 100 }} />
                   <col style={{ width: 110 }} />
                   <col style={{ width: 130 }} />
                   <col style={{ width: 110 }} />
@@ -416,6 +417,7 @@ export default function ProyeccionPage() {
                       "Gasto Total Hoy",
                       "Proyección Cierre",
                       "Gasto Proyección",
+                      "Leads/FB",
                       "Leads/CRM (etiqueta GHL)",
                       "Costo x Lead",
                       "FTD Estimado",
@@ -455,7 +457,7 @@ export default function ProyeccionPage() {
                   ))}
                   {offices.length === 0 && (
                     <tr>
-                      <td colSpan={13} className="px-4 py-6 text-center" style={{ color: "var(--text-muted)" }}>
+                      <td colSpan={14} className="px-4 py-6 text-center" style={{ color: "var(--text-muted)" }}>
                         No hay oficinas en la proyección todavía.
                       </td>
                     </tr>
@@ -616,6 +618,19 @@ function OfficeRow({
       </td>
       <td className="px-3 py-2" style={cellStyle}>
         {currency(office.gasto_proyeccion)}
+      </td>
+      <td className="px-3 py-2" style={cellStyle}>
+        {editable ? (
+          <input
+            type="number"
+            defaultValue={office.leads_meta}
+            onBlur={(e) => onUpdate({ leads_meta_final: Number(e.target.value) || 0 })}
+            className="w-full rounded px-1 py-0.5 text-sm outline-none"
+            style={inputStyle}
+          />
+        ) : (
+          number(office.leads_meta)
+        )}
       </td>
       <td className="px-3 py-2" style={{ ...cellStyle, color: "var(--series-2)" }}>
         {editable ? (

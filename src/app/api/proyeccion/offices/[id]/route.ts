@@ -43,6 +43,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     // Ajustes manuales sobre un mes ya cerrado (gasto/leads/$ diario
     // congelados, editables mientras el cierre está desbloqueado).
     if (typeof body.gasto_final === "number") updates.gasto_final = body.gasto_final;
+    if (typeof body.leads_meta_final === "number") updates.leads_meta_final = body.leads_meta_final;
     if (typeof body.leads_final === "number") updates.leads_final = body.leads_final;
     if (typeof body.diario_final === "number") updates.diario_final = body.diario_final;
   }

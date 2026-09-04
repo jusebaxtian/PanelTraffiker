@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { fetchAllAccountsInsights } from "@/lib/metaAds";
+import { fetchAllAccountsInsights, conversationsStarted } from "@/lib/metaAds";
 import { countContactsByTagInMonth } from "@/lib/ghl";
 import { computeOffice, monthRange, type CampaignRef, type ProyeccionOffice } from "@/lib/proyeccion";
 import { officeTotal } from "@/lib/distribucion";
@@ -18,6 +18,7 @@ const MAX_FORCE_REFRESHES_PER_WINDOW = 2;
 interface CacheRow {
   gasto_by_office: Record<string, number>;
   leads_by_office: Record<string, number>;
+  leads_meta_by_office: Record<string, number>;
   window_started_at: string;
   data_updated_at: string;
   force_count: number;
@@ -36,6 +37,7 @@ function rowToOffice(row: {
   gasto_final: number | null;
   leads_final: number | null;
   diario_final: number | null;
+  leads_meta_final: number | null;
 }): ProyeccionOffice {
   return {
     id: row.id,
@@ -50,6 +52,7 @@ function rowToOffice(row: {
     gasto_final: row.gasto_final,
     leads_final: row.leads_final,
     diario_final: row.diario_final,
+    leads_meta_final: row.leads_meta_final,
   };
 }
 
@@ -114,8 +117,9 @@ export async function GET(request: NextRequest) {
     const data = offices.map((office) => {
       const diario = office.diario_final ?? 0;
       const gastoDelMes = office.gasto_final ?? 0;
+      const leadsMetaDelMes = office.leads_meta_final ?? 0;
       const leadsDelMes = office.leads_final ?? 0;
-      return computeOffice(office, diario, gastoDelMes, leadsDelMes, diasFaltantes, costoFtdMes);
+      return computeOffice(office, diario, gastoDelMes, leadsMetaDelMes, leadsDelMes, diasFaltantes, costoFtdMes);
     });
     return NextResponse.json({
       data,
@@ -143,6 +147,7 @@ export async function GET(request: NextRequest) {
   const shouldFetchLive = !cache || windowExpired || forceAllowed || configChange;
 
   let gastoByOfficeId: Record<string, number>;
+  let leadsMetaByOfficeId: Record<string, number>;
   let leadsByOfficeId: Record<string, number>;
   let cacheMeta: { updatedAt: string; forceRemaining: number; nextWindowAt: string };
 
@@ -155,14 +160,15 @@ export async function GET(request: NextRequest) {
     }
 
     gastoByOfficeId = {};
+    leadsMetaByOfficeId = {};
     leadsByOfficeId = {};
 
     await Promise.all(
       offices.map(async (office) => {
         const campaignIds = new Set(office.campaigns.map((c) => c.campaign_id));
-        gastoByOfficeId[office.id] = insights
-          .filter((i) => i.campaign_id && campaignIds.has(i.campaign_id))
-          .reduce((sum, i) => sum + Number(i.spend ?? 0), 0);
+        const officeInsights = insights.filter((i) => i.campaign_id && campaignIds.has(i.campaign_id));
+        gastoByOfficeId[office.id] = officeInsights.reduce((sum, i) => sum + Number(i.spend ?? 0), 0);
+        leadsMetaByOfficeId[office.id] = officeInsights.reduce((sum, i) => sum + conversationsStarted(i), 0);
 
         let leadsDelMes = 0;
         const connection = office.crm_connection_id ? crmConnectionById.get(office.crm_connection_id) : null;
@@ -191,6 +197,7 @@ export async function GET(request: NextRequest) {
     await supabase.from("proyeccion_metrics_cache").upsert({
       config_id: configId,
       gasto_by_office: gastoByOfficeId,
+      leads_meta_by_office: leadsMetaByOfficeId,
       leads_by_office: leadsByOfficeId,
       window_started_at: nextWindowStartedAt,
       data_updated_at: new Date(now).toISOString(),
@@ -204,6 +211,7 @@ export async function GET(request: NextRequest) {
     };
   } else {
     gastoByOfficeId = cache!.gasto_by_office ?? {};
+    leadsMetaByOfficeId = cache!.leads_meta_by_office ?? {};
     leadsByOfficeId = cache!.leads_by_office ?? {};
     cacheMeta = {
       updatedAt: cache!.data_updated_at,
@@ -215,8 +223,9 @@ export async function GET(request: NextRequest) {
   const data = offices.map((office) => {
     const diario = office.distribucion_office_id ? diarioByOfficeId.get(office.distribucion_office_id) ?? 0 : 0;
     const gastoDelMes = gastoByOfficeId[office.id] ?? 0;
+    const leadsMetaDelMes = leadsMetaByOfficeId[office.id] ?? 0;
     const leadsDelMes = leadsByOfficeId[office.id] ?? 0;
-    return computeOffice(office, diario, gastoDelMes, leadsDelMes, diasFaltantes, costoFtdMes);
+    return computeOffice(office, diario, gastoDelMes, leadsMetaDelMes, leadsDelMes, diasFaltantes, costoFtdMes);
   });
 
   return NextResponse.json({ data, cache: cacheMeta });
@@ -261,5 +270,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ data: computeOffice(rowToOffice(data), 0, 0, 0, 0, 0) });
+  return NextResponse.json({ data: computeOffice(rowToOffice(data), 0, 0, 0, 0, 0, 0) });
 }

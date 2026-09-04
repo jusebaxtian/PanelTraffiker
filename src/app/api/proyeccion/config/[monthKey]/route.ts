@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { monthLabel, monthRange, type CampaignRef } from "@/lib/proyeccion";
-import { fetchAllAccountsInsights } from "@/lib/metaAds";
+import { fetchAllAccountsInsights, conversationsStarted } from "@/lib/metaAds";
 import { countContactsByTagInMonth } from "@/lib/ghl";
 import { officeTotal } from "@/lib/distribucion";
 import { requireModuleWriteAccess, requireWriteAccess } from "@/lib/auth";
@@ -79,9 +79,9 @@ async function freezeMonth(configId: string, monthKey: string) {
   await Promise.all(
     (offices ?? []).map(async (office: OfficeRow) => {
       const campaignIds = new Set((office.campaigns ?? []).map((c) => c.campaign_id));
-      const gastoFinal = insights
-        .filter((i) => i.campaign_id && campaignIds.has(i.campaign_id))
-        .reduce((sum, i) => sum + Number(i.spend ?? 0), 0);
+      const officeInsights = insights.filter((i) => i.campaign_id && campaignIds.has(i.campaign_id));
+      const gastoFinal = officeInsights.reduce((sum, i) => sum + Number(i.spend ?? 0), 0);
+      const leadsMetaFinal = officeInsights.reduce((sum, i) => sum + conversationsStarted(i), 0);
 
       let leadsFinal = 0;
       const connection = office.crm_connection_id ? crmConnectionById.get(office.crm_connection_id) : null;
@@ -102,7 +102,7 @@ async function freezeMonth(configId: string, monthKey: string) {
 
       await supabase
         .from("proyeccion_offices")
-        .update({ gasto_final: gastoFinal, leads_final: leadsFinal, diario_final: diarioFinal })
+        .update({ gasto_final: gastoFinal, leads_meta_final: leadsMetaFinal, leads_final: leadsFinal, diario_final: diarioFinal })
         .eq("id", office.id);
     })
   );

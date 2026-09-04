@@ -61,6 +61,7 @@ export interface ProyeccionOffice {
   gasto_final: number | null;
   leads_final: number | null;
   diario_final: number | null;
+  leads_meta_final: number | null;
 }
 
 export interface ProyeccionOfficeComputed extends ProyeccionOffice {
@@ -69,6 +70,7 @@ export interface ProyeccionOfficeComputed extends ProyeccionOffice {
   gasto_total_hoy: number;
   proyeccion_cierre: number;
   gasto_proyeccion: number;
+  leads_meta: number;
   leads_crm: number;
   costo_x_resultado: number;
   total_mes: number;
@@ -82,6 +84,7 @@ export function computeOffice(
   office: ProyeccionOffice,
   diario: number,
   gastoDelMes: number,
+  leadsMetaDelMes: number,
   leadsDelMes: number,
   diasFaltantes: number,
   costoFtdMes: number
@@ -92,6 +95,7 @@ export function computeOffice(
   // Gasto Proyección = lo ya gastado + lo que falta por gastar en el
   // resto del mes (no es lo mismo que Proyección Cierre en solitario).
   const gasto_proyeccion = gasto_total_hoy + proyeccion_cierre;
+  const leads_meta = leadsMetaDelMes;
   const leads_crm = leadsDelMes;
   const costo_x_resultado = leads_crm > 0 ? gasto_total_hoy / leads_crm : 0;
   const total_mes = gasto_proyeccion;
@@ -107,6 +111,7 @@ export function computeOffice(
     gasto_total_hoy,
     proyeccion_cierre,
     gasto_proyeccion,
+    leads_meta,
     leads_crm,
     costo_x_resultado,
     total_mes,
