@@ -51,14 +51,17 @@ export async function GET() {
     const totalPending = billing.reduce((s, a) => s + (a.error ? 0 : a.balance), 0);
     lines.push(`Saldo pendiente total: <b>$ ${money(totalPending)}</b>`);
     for (const a of billing) {
+      lines.push("");
       if (a.error) {
-        lines.push(`⚠️ ${escapeHtml(a.name)}: no se pudo consultar`);
+        lines.push(`⚠️ <b>${escapeHtml(a.name)}</b>`);
+        lines.push("no se pudo consultar");
         continue;
       }
       const flag = a.accountStatus === 1 ? "🟢" : a.accountStatus === 9 || a.accountStatus === 3 ? "🟡" : "🔴";
       const estado = ACCOUNT_STATUS_LABEL[a.accountStatus] ?? `estado ${a.accountStatus}`;
-      const debt = a.balance > 0 ? ` · saldo $ ${money(a.balance)}` : "";
-      lines.push(`${flag} ${escapeHtml(a.name)} — ${estado}${debt}`);
+      lines.push(`${flag} <b>${escapeHtml(a.name)}</b>`);
+      lines.push(estado);
+      lines.push(`saldo $ ${money(a.balance)}`);
     }
 
     // --- Reporte Diario de ayer ---
@@ -69,7 +72,6 @@ export async function GET() {
     const table: string[] = [];
     table.push(
       pad("Oficina", 13) +
-        padLeft("L.Meta", 8) +
         padLeft("L.CRM", 7) +
         padLeft("$/Lead", 9) +
         padLeft("Gasto", 12)
@@ -81,7 +83,6 @@ export async function GET() {
       totalLeadsCrm += o.leads_crm;
       table.push(
         pad(o.asignacion, 13) +
-          padLeft(String(o.leads_meta), 8) +
           padLeft(String(o.leads_crm), 7) +
           padLeft(money(o.costo_x_resultado), 9) +
           padLeft(money(o.gasto), 12)
