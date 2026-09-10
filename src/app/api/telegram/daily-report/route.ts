@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { sendTelegramMessage } from "@/lib/telegram";
 import { fetchAllAccountsBilling } from "@/lib/metaAds";
 import { getOrBuildSnapshot } from "@/lib/reporteDiarioSnapshot";
+import { checkAdAccountStatusChanges } from "@/lib/adStatusWatch";
 import { bogotaDateString, bogotaYesterdayDateString } from "@/lib/bogota";
 
 const ACCOUNT_STATUS_LABEL: Record<number, string> = {
@@ -93,7 +94,17 @@ export async function GET() {
     lines.push(`Total leads CRM: <b>${money(totalLeadsCrm)}</b>`);
 
     await sendTelegramMessage(lines.join("\n"));
-    return NextResponse.json({ ok: true, sent: true });
+
+    // Además del reporte, revisa si alguna cuenta publicitaria cambió de
+    // estado desde la última vez y avisa aparte si es el caso.
+    let statusChanges = 0;
+    try {
+      ({ changed: statusChanges } = await checkAdAccountStatusChanges(billing));
+    } catch {
+      // no romper el reporte por esto
+    }
+
+    return NextResponse.json({ ok: true, sent: true, statusChanges });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Error enviando el reporte a Telegram" },
