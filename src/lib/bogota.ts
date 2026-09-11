@@ -39,6 +39,49 @@ export function bogotaDayRange(dateStr: string) {
   return { start, end, since: dateStr, until: dateStr };
 }
 
+// Rango [start, end) entre dos fechas YYYY-MM-DD (inclusive), en hora
+// legal de Colombia, como instantes UTC absolutos.
+export function bogotaRangeBetween(sinceStr: string, untilStr: string) {
+  return { start: bogotaDayRange(sinceStr).start, end: bogotaDayRange(untilStr).end, since: sinceStr, until: untilStr };
+}
+
+function addDays(dateStr: string, days: number): string {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const d = new Date(Date.UTC(year, month - 1, day + days));
+  return bogotaDateString(new Date(d.getTime()));
+}
+
+// Traduce los mismos date_preset del Dashboard (today/yesterday/last_7d/
+// this_month/last_month) a un rango [since, until] en hora de Colombia,
+// para poder consultar el CRM con el mismo período que se ve en pantalla
+// (Meta interpreta el preset por su cuenta; esto es solo para GHL).
+export function bogotaPresetToRange(preset: string): { since: string; until: string } {
+  const today = bogotaDateString();
+  switch (preset) {
+    case "today":
+      return { since: today, until: today };
+    case "yesterday": {
+      const y = bogotaYesterdayDateString();
+      return { since: y, until: y };
+    }
+    case "last_7d":
+      return { since: addDays(today, -7), until: addDays(today, -1) };
+    case "this_month": {
+      const [year, month] = bogotaMonthKey().split("-");
+      return { since: `${year}-${month}-01`, until: today };
+    }
+    case "last_month": {
+      const [y, m] = bogotaMonthKey().split("-").map(Number);
+      const lastMonthDate = new Date(Date.UTC(y, m - 2, 1));
+      const lastMonthKey = `${lastMonthDate.getUTCFullYear()}-${String(lastMonthDate.getUTCMonth() + 1).padStart(2, "0")}`;
+      const lastDay = new Date(Date.UTC(lastMonthDate.getUTCFullYear(), lastMonthDate.getUTCMonth() + 1, 0)).getUTCDate();
+      return { since: `${lastMonthKey}-01`, until: `${lastMonthKey}-${String(lastDay).padStart(2, "0")}` };
+    }
+    default:
+      return { since: addDays(today, -30), until: today };
+  }
+}
+
 // Client-side: Date cuyos getters LOCALES (getFullYear, getMonth,
 // getDate, ...) devuelven los valores de la hora civil de Bogotá, sin
 // importar la zona horaria del dispositivo del usuario.

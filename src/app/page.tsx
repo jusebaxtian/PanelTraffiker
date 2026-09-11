@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AdInsight } from "@/lib/metaAds";
 import { conversationsStarted, video3SecWatchRate, videoAvgTimeWatched } from "@/lib/metaAds";
+import CrmTagPicker from "@/components/CrmTagPicker";
 
 interface EnrichedInsight extends AdInsight {
   result: number;
@@ -10,6 +11,15 @@ interface EnrichedInsight extends AdInsight {
   objective?: string;
   daily_budget?: string;
   today_spend: number;
+  leads_crm: number | null;
+  crm_connection_id: string | null;
+  ghl_tag: string | null;
+}
+
+interface CrmConnection {
+  id: string;
+  name: string;
+  location_id: string;
 }
 
 function currency(n: number) {
@@ -59,6 +69,7 @@ const COLUMNS = [
   { key: "campaign", label: "Campaña", defaultWidth: 260 },
   { key: "status", label: "Estado", defaultWidth: 110 },
   { key: "result", label: "Resultado", defaultWidth: 110 },
+  { key: "leadsCrm", label: "Leads/CRM", defaultWidth: 130 },
   { key: "costPerResult", label: "Costo/resultado", defaultWidth: 140 },
   { key: "spend", label: "Gasto", defaultWidth: 120 },
   { key: "todaySpend", label: "Gasto hoy", defaultWidth: 120 },
@@ -127,9 +138,11 @@ export default function Home() {
   const [customRange, setCustomRange] = useState<{ since: string; until: string } | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
+  const [crmConnections, setCrmConnections] = useState<CrmConnection[]>([]);
+  const [crmPickerForCampaignId, setCrmPickerForCampaignId] = useState<string | null>(null);
   const { widths, startResize } = useColumnWidths();
 
-  useEffect(() => {
+  function loadInsights() {
     setLoading(true);
     setError(null);
     const params = customRange
@@ -146,7 +159,28 @@ export default function Home() {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [datePreset, customRange]);
+  }
+
+  useEffect(loadInsights, [datePreset, customRange]);
+
+  useEffect(() => {
+    fetch("/api/proyeccion/crm-connections")
+      .then((res) => res.json())
+      .then((json) => {
+        if (!json.error) setCrmConnections(json.data);
+      })
+      .catch(() => {});
+  }, []);
+
+  async function saveCrmLink(campaignId: string, crmConnectionId: string | null, ghlTag: string | null) {
+    await fetch("/api/insights/crm-links", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ campaign_id: campaignId, crm_connection_id: crmConnectionId, ghl_tag: ghlTag }),
+    });
+    setCrmPickerForCampaignId(null);
+    loadInsights();
+  }
 
   const statusOptions = useMemo(() => {
     const present = new Set(insights.map((i) => i.status).filter(Boolean) as string[]);
@@ -319,7 +353,7 @@ export default function Home() {
               <div className="overflow-x-auto">
                 <table
                   className="w-full text-left text-sm"
-                  style={{ tableLayout: "fixed", minWidth: 880 }}
+                  style={{ tableLayout: "fixed", minWidth: 1000 }}
                 >
                   <colgroup>
                     {COLUMNS.map((col) => (
@@ -385,6 +419,18 @@ export default function Home() {
                           <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
                             {number(row.result)}
                           </td>
+                          <td className="overflow-hidden px-4 py-3" style={{ color: "var(--series-2)", fontVariantNumeric: "tabular-nums" }}>
+                            {row.leads_crm !== null ? number(row.leads_crm) : "-"}
+                            {row.campaign_id && (
+                              <button
+                                onClick={() => setCrmPickerForCampaignId(row.campaign_id!)}
+                                className="mt-0.5 block truncate text-left text-xs"
+                                style={{ color: row.ghl_tag ? "var(--text-muted)" : "var(--brand)" }}
+                              >
+                                {row.ghl_tag ? row.ghl_tag : "Elegir CRM y etiqueta"} ✎
+                              </button>
+                            )}
+                          </td>
                           <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
                             {currency(costPerRowResult)}
                           </td>
@@ -426,6 +472,22 @@ export default function Home() {
           </>
         )}
       </main>
+
+      {crmPickerForCampaignId && (
+        <CrmTagPicker
+          connections={crmConnections}
+          selectedConnectionId={
+            insights.find((i) => i.campaign_id === crmPickerForCampaignId)?.crm_connection_id ?? null
+          }
+          selectedTag={insights.find((i) => i.campaign_id === crmPickerForCampaignId)?.ghl_tag ?? null}
+          onClose={() => setCrmPickerForCampaignId(null)}
+          onConnectionCreated={(connection) => setCrmConnections((prev) => [...prev, connection])}
+          onConnectionUpdated={(connection) =>
+            setCrmConnections((prev) => prev.map((c) => (c.id === connection.id ? connection : c)))
+          }
+          onSave={(crmConnectionId, ghlTag) => saveCrmLink(crmPickerForCampaignId, crmConnectionId, ghlTag)}
+        />
+      )}
     </div>
   );
 }
