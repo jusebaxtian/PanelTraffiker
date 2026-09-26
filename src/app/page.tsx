@@ -30,6 +30,7 @@ interface ChildRow extends AdInsight {
   result: number;
   status?: string;
   account_id: string;
+  preview_link?: string | null;
 }
 
 type ChildState = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; rows: ChildRow[] };
@@ -664,9 +665,23 @@ function ChildRowTr({
               {expanded ? "▾" : "▸"}
             </button>
           )}
-          <span className="truncate text-sm" style={{ color: "var(--text-secondary)" }}>
-            {row.name}
-          </span>
+          {row.preview_link ? (
+            <a
+              href={row.preview_link}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="truncate text-sm underline-offset-2 hover:underline"
+              style={{ color: "var(--brand)" }}
+              title="Ver el anuncio"
+            >
+              {row.name} ↗
+            </a>
+          ) : (
+            <span className="truncate text-sm" style={{ color: "var(--text-secondary)" }}>
+              {row.name}
+            </span>
+          )}
         </div>
       </td>
       <td className="overflow-hidden px-4 py-2">

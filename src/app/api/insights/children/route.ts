@@ -50,6 +50,7 @@ export async function GET(request: NextRequest) {
         result: conversationsStarted(row),
         status: entity?.effective_status ?? entity?.status,
         account_id: accountId,
+        preview_link: entity?.preview_shareable_link ?? null,
       };
     });
 
@@ -65,6 +66,7 @@ export async function GET(request: NextRequest) {
         result: 0,
         spend: "0",
         account_id: accountId,
+        preview_link: e.preview_shareable_link ?? null,
       }));
 
     return NextResponse.json({ data: [...rowsWithInsights, ...zeroRows] });

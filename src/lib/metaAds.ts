@@ -346,6 +346,9 @@ export interface ChildEntity {
   name?: string;
   status?: string;
   effective_status?: string;
+  // Solo viene para anuncios: link público (sin login) para ver la
+  // pieza creativa tal como la vería el usuario.
+  preview_shareable_link?: string;
 }
 
 interface ChildEntitiesResponse {
@@ -363,9 +366,10 @@ export async function fetchChildEntities(
   level: "adset" | "ad"
 ): Promise<ChildEntity[]> {
   const edge = level === "adset" ? "adsets" : "ads";
+  const fields = level === "ad" ? "id,name,status,effective_status,preview_shareable_link" : "id,name,status,effective_status";
   const url = new URL(`${META_BASE_URL}/${nodeId}/${edge}`);
   url.searchParams.set("access_token", accessToken);
-  url.searchParams.set("fields", "id,name,status,effective_status");
+  url.searchParams.set("fields", fields);
   url.searchParams.set("limit", "500");
 
   const results: ChildEntity[] = [];
