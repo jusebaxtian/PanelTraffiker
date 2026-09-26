@@ -163,6 +163,10 @@ export interface AdInsight {
   account_id: string;
   campaign_id?: string;
   campaign_name?: string;
+  adset_id?: string;
+  adset_name?: string;
+  ad_id?: string;
+  ad_name?: string;
   impressions?: string;
   clicks?: string;
   spend?: string;
@@ -292,6 +296,88 @@ export async function fetchAccountInsights(
     }
 
     results.push(...json.data.map((d) => ({ ...d, account_id: adAccountId })));
+    nextUrl = json.paging?.next ?? null;
+  }
+
+  return results;
+}
+
+// Insights de los HIJOS directos de una campaña (level=adset) o de un
+// conjunto de anuncios (level=ad) — se pide el edge "insights" sobre el
+// propio nodo padre, igual que fetchAccountInsights pero apuntando a un
+// campaign_id/adset_id en vez de a la cuenta completa. Para el drill-down
+// del Dashboard (campaña -> conjuntos -> anuncios).
+export async function fetchNodeInsights(
+  nodeId: string,
+  accessToken: string,
+  level: "adset" | "ad",
+  options: { datePreset?: string; timeRange?: TimeRange } = {}
+): Promise<AdInsight[]> {
+  const idFields = level === "adset" ? "adset_id,adset_name" : "ad_id,ad_name";
+  const url = new URL(`${META_BASE_URL}/${nodeId}/insights`);
+  url.searchParams.set("access_token", accessToken);
+  url.searchParams.set("fields", `${DEFAULT_FIELDS},${idFields}`);
+  if (options.timeRange) {
+    url.searchParams.set("time_range", JSON.stringify(options.timeRange));
+  } else {
+    url.searchParams.set("date_preset", options.datePreset ?? "last_30d");
+  }
+  url.searchParams.set("level", level);
+  url.searchParams.set("limit", "500");
+
+  const results: AdInsight[] = [];
+  let nextUrl: string | null = url.toString();
+
+  while (nextUrl) {
+    const res: Response = await fetch(nextUrl);
+    const json: MetaInsightsResponse = await res.json();
+    if (json.error) {
+      throw new Error(`Meta API error (${nodeId}): ${json.error.message}`);
+    }
+    results.push(...json.data);
+    nextUrl = json.paging?.next ?? null;
+  }
+
+  return results;
+}
+
+export interface ChildEntity {
+  id: string;
+  name?: string;
+  status?: string;
+  effective_status?: string;
+}
+
+interface ChildEntitiesResponse {
+  data: ChildEntity[];
+  paging?: { next?: string };
+  error?: { message: string };
+}
+
+// Lista los conjuntos de una campaña o los anuncios de un conjunto (con
+// su estado), para que ninguno "desaparezca" del drill-down solo por no
+// tener gasto en el rango de fechas consultado.
+export async function fetchChildEntities(
+  nodeId: string,
+  accessToken: string,
+  level: "adset" | "ad"
+): Promise<ChildEntity[]> {
+  const edge = level === "adset" ? "adsets" : "ads";
+  const url = new URL(`${META_BASE_URL}/${nodeId}/${edge}`);
+  url.searchParams.set("access_token", accessToken);
+  url.searchParams.set("fields", "id,name,status,effective_status");
+  url.searchParams.set("limit", "500");
+
+  const results: ChildEntity[] = [];
+  let nextUrl: string | null = url.toString();
+
+  while (nextUrl) {
+    const res = await fetch(nextUrl);
+    const json: ChildEntitiesResponse = await res.json();
+    if (json.error) {
+      throw new Error(`Meta API error (${nodeId}): ${json.error.message}`);
+    }
+    results.push(...(json.data ?? []));
     nextUrl = json.paging?.next ?? null;
   }
 

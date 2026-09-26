@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { AdInsight } from "@/lib/metaAds";
 import { conversationsStarted, video3SecWatchRate, videoAvgTimeWatched } from "@/lib/metaAds";
 import CrmTagPicker from "@/components/CrmTagPicker";
@@ -21,6 +21,18 @@ interface CrmConnection {
   name: string;
   location_id: string;
 }
+
+// Fila de conjunto de anuncios o de anuncio individual, para el
+// drill-down debajo de cada campaña.
+interface ChildRow extends AdInsight {
+  id: string;
+  name: string;
+  result: number;
+  status?: string;
+  account_id: string;
+}
+
+type ChildState = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; rows: ChildRow[] };
 
 function currency(n: number) {
   return n.toLocaleString("es-CO", {
@@ -140,11 +152,81 @@ export default function Home() {
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
   const [crmConnections, setCrmConnections] = useState<CrmConnection[]>([]);
   const [crmPickerForCampaignId, setCrmPickerForCampaignId] = useState<string | null>(null);
+  const [adSetsByCampaign, setAdSetsByCampaign] = useState<Record<string, ChildState>>({});
+  const [adsByAdSet, setAdsByAdSet] = useState<Record<string, ChildState>>({});
   const { widths, startResize } = useColumnWidths();
+
+  // Mismo rango de fechas que se usa para /api/insights, para que el
+  // drill-down de conjuntos/anuncios muestre el mismo período.
+  const dateParams = customRange
+    ? `since=${customRange.since}&until=${customRange.until}`
+    : `date_preset=${datePreset}`;
+
+  async function loadAdSets(campaignId: string, accountId: string) {
+    setAdSetsByCampaign((prev) => ({ ...prev, [campaignId]: { status: "loading" } }));
+    try {
+      const res = await fetch(
+        `/api/insights/children?parent_id=${campaignId}&account_id=${accountId}&level=adset&${dateParams}`
+      );
+      const json = await res.json();
+      if (json.error) throw new Error(json.error);
+      setAdSetsByCampaign((prev) => ({ ...prev, [campaignId]: { status: "ready", rows: json.data } }));
+    } catch (err) {
+      setAdSetsByCampaign((prev) => ({
+        ...prev,
+        [campaignId]: { status: "error", message: err instanceof Error ? err.message : "Error" },
+      }));
+    }
+  }
+
+  async function loadAds(adSetId: string, accountId: string) {
+    setAdsByAdSet((prev) => ({ ...prev, [adSetId]: { status: "loading" } }));
+    try {
+      const res = await fetch(
+        `/api/insights/children?parent_id=${adSetId}&account_id=${accountId}&level=ad&${dateParams}`
+      );
+      const json = await res.json();
+      if (json.error) throw new Error(json.error);
+      setAdsByAdSet((prev) => ({ ...prev, [adSetId]: { status: "ready", rows: json.data } }));
+    } catch (err) {
+      setAdsByAdSet((prev) => ({
+        ...prev,
+        [adSetId]: { status: "error", message: err instanceof Error ? err.message : "Error" },
+      }));
+    }
+  }
+
+  function toggleCampaign(row: EnrichedInsight) {
+    const campaignId = row.campaign_id;
+    if (!campaignId) return;
+    if (adSetsByCampaign[campaignId]) {
+      setAdSetsByCampaign((prev) => {
+        const next = { ...prev };
+        delete next[campaignId];
+        return next;
+      });
+      return;
+    }
+    loadAdSets(campaignId, row.account_id);
+  }
+
+  function toggleAdSet(adSetId: string, accountId: string) {
+    if (adsByAdSet[adSetId]) {
+      setAdsByAdSet((prev) => {
+        const next = { ...prev };
+        delete next[adSetId];
+        return next;
+      });
+      return;
+    }
+    loadAds(adSetId, accountId);
+  }
 
   function loadInsights() {
     setLoading(true);
     setError(null);
+    setAdSetsByCampaign({});
+    setAdsByAdSet({});
     const params = customRange
       ? `since=${customRange.since}&until=${customRange.until}`
       : `date_preset=${datePreset}`;
@@ -389,20 +471,36 @@ export default function Home() {
                   <tbody>
                     {filteredInsights.map((row, idx) => {
                       const costPerRowResult = row.result > 0 ? Number(row.spend ?? 0) / row.result : 0;
+                      const campaignId = row.campaign_id;
+                      const adSetsState = campaignId ? adSetsByCampaign[campaignId] : undefined;
                       return (
+                        <Fragment key={idx}>
                         <tr
-                          key={idx}
                           style={{ borderTop: idx === 0 ? "none" : "1px solid var(--gridline)" }}
                         >
                           <td className="overflow-hidden px-4 py-3">
-                            <div className="truncate" style={{ color: "var(--text-primary)" }}>
-                              {row.campaign_name ?? "-"}
-                            </div>
-                            <div
-                              className="text-xs"
-                              style={{ color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}
-                            >
-                              {row.account_id?.replace("act_", "")}
+                            <div className="flex items-start gap-1.5">
+                              {campaignId && (
+                                <button
+                                  onClick={() => toggleCampaign(row)}
+                                  className="mt-0.5 shrink-0 text-xs"
+                                  style={{ color: "var(--text-muted)" }}
+                                  title="Ver conjuntos de anuncios"
+                                >
+                                  {adSetsState ? "▾" : "▸"}
+                                </button>
+                              )}
+                              <div className="min-w-0">
+                                <div className="truncate" style={{ color: "var(--text-primary)" }}>
+                                  {row.campaign_name ?? "-"}
+                                </div>
+                                <div
+                                  className="text-xs"
+                                  style={{ color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}
+                                >
+                                  {row.account_id?.replace("act_", "")}
+                                </div>
+                              </div>
                             </div>
                           </td>
                           <td className="overflow-hidden px-4 py-3">
@@ -456,6 +554,39 @@ export default function Home() {
                             {videoAvgTimeWatched(row).toFixed(1)}s
                           </td>
                         </tr>
+
+                        {campaignId && adSetsState?.status === "loading" && (
+                          <ChildStatusRow indent={1} label="Cargando conjuntos..." />
+                        )}
+                        {campaignId && adSetsState?.status === "error" && (
+                          <ChildStatusRow indent={1} label={`Error: ${adSetsState.message}`} isError />
+                        )}
+                        {campaignId &&
+                          adSetsState?.status === "ready" &&
+                          adSetsState.rows.map((adSet) => {
+                            const adsState = adsByAdSet[adSet.id];
+                            return (
+                              <Fragment key={adSet.id}>
+                                <ChildRowTr
+                                  row={adSet}
+                                  indent={1}
+                                  expandable
+                                  expanded={!!adsState}
+                                  onToggle={() => toggleAdSet(adSet.id, adSet.account_id)}
+                                />
+                                {adsState?.status === "loading" && <ChildStatusRow indent={2} label="Cargando anuncios..." />}
+                                {adsState?.status === "error" && (
+                                  <ChildStatusRow indent={2} label={`Error: ${adsState.message}`} isError />
+                                )}
+                                {adsState?.status === "ready" &&
+                                  adsState.rows.map((ad) => <ChildRowTr key={ad.id} row={ad} indent={2} />)}
+                              </Fragment>
+                            );
+                          })}
+                        {campaignId && adSetsState?.status === "ready" && adSetsState.rows.length === 0 && (
+                          <ChildStatusRow indent={1} label="Sin conjuntos de anuncios en este rango." />
+                        )}
+                        </Fragment>
                       );
                     })}
                     {filteredInsights.length === 0 && (
@@ -489,6 +620,94 @@ export default function Home() {
         />
       )}
     </div>
+  );
+}
+
+function ChildStatusRow({ indent, label, isError }: { indent: number; label: string; isError?: boolean }) {
+  return (
+    <tr style={{ borderTop: "1px solid var(--gridline)", background: "rgba(255,255,255,0.02)" }}>
+      <td
+        colSpan={COLUMNS.length}
+        className="px-4 py-2 text-xs"
+        style={{ paddingLeft: 16 + indent * 20, color: isError ? "var(--critical)" : "var(--text-muted)" }}
+      >
+        {label}
+      </td>
+    </tr>
+  );
+}
+
+// Fila de un conjunto de anuncios o de un anuncio individual dentro del
+// drill-down de una campaña. Reusa las mismas columnas que la fila de
+// campaña (misma estructura de tabla), con sangría según el nivel.
+function ChildRowTr({
+  row,
+  indent,
+  expandable,
+  expanded,
+  onToggle,
+}: {
+  row: ChildRow;
+  indent: number;
+  expandable?: boolean;
+  expanded?: boolean;
+  onToggle?: () => void;
+}) {
+  const costPerRowResult = row.result > 0 ? Number(row.spend ?? 0) / row.result : 0;
+  const cellStyle = { color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" as const };
+  return (
+    <tr style={{ borderTop: "1px solid var(--gridline)", background: "rgba(255,255,255,0.02)" }}>
+      <td className="overflow-hidden px-4 py-2" style={{ paddingLeft: 16 + indent * 20 }}>
+        <div className="flex items-center gap-1.5">
+          {expandable && (
+            <button onClick={onToggle} className="shrink-0 text-xs" style={{ color: "var(--text-muted)" }} title="Ver anuncios">
+              {expanded ? "▾" : "▸"}
+            </button>
+          )}
+          <span className="truncate text-sm" style={{ color: "var(--text-secondary)" }}>
+            {row.name}
+          </span>
+        </div>
+      </td>
+      <td className="overflow-hidden px-4 py-2">
+        <span
+          className="rounded-full px-2 py-0.5 text-xs font-medium"
+          style={{ color: statusColor(row.status), background: "rgba(255,255,255,0.06)" }}
+        >
+          {humanize(row.status)}
+        </span>
+      </td>
+      <td className="overflow-hidden px-4 py-2" style={cellStyle}>
+        {number(row.result)}
+      </td>
+      <td className="overflow-hidden px-4 py-2" style={cellStyle}>
+        -
+      </td>
+      <td className="overflow-hidden px-4 py-2" style={cellStyle}>
+        {currency(costPerRowResult)}
+      </td>
+      <td className="overflow-hidden px-4 py-2" style={cellStyle}>
+        {currency(Number(row.spend ?? 0))}
+      </td>
+      <td className="overflow-hidden px-4 py-2" style={cellStyle}>
+        -
+      </td>
+      <td className="overflow-hidden px-4 py-2" style={cellStyle}>
+        {Number(row.ctr ?? 0).toFixed(2)}%
+      </td>
+      <td className="overflow-hidden px-4 py-2" style={cellStyle}>
+        {Number(row.frequency ?? 0).toFixed(2)}
+      </td>
+      <td className="overflow-hidden px-4 py-2" style={cellStyle}>
+        {number(Number(row.unique_clicks ?? 0))}
+      </td>
+      <td className="overflow-hidden px-4 py-2" style={cellStyle}>
+        {video3SecWatchRate(row).toFixed(2)}%
+      </td>
+      <td className="overflow-hidden px-4 py-2" style={cellStyle}>
+        {videoAvgTimeWatched(row).toFixed(1)}s
+      </td>
+    </tr>
   );
 }
 
