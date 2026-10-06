@@ -331,7 +331,8 @@ function OfficeCard({
                   {currency(agentValue(agent))}
                 </td>
                 <td className="py-1.5 pr-2 text-right">
-                  <span className={`inline-flex gap-1.5 opacity-0 transition-opacity group-hover:opacity-100 ${readOnly ? "hidden" : ""}`}>
+                  {!readOnly && (
+                  <span className="inline-flex gap-1.5 opacity-0 transition-opacity group-hover:opacity-100">
                     <button
                       onClick={() => setEditingAgentId(agent.id)}
                       className="text-xs"
@@ -349,6 +350,7 @@ function OfficeCard({
                       ✕
                     </button>
                   </span>
+                  )}
                 </td>
               </tr>
             )
