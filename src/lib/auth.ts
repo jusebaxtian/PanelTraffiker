@@ -54,7 +54,7 @@ export async function requireSuperAdmin(): Promise<AuthResult> {
   const result = await requireUser();
   if ("error" in result) return result;
   if (result.user.role !== "superadmin") {
-    return { error: NextResponse.json({ error: "Solo el SuperAdmin puede hacer esto" }, { status: 403 }) };
+    return { error: NextResponse.json({ error: "No tienes permiso para realizar esta acción" }, { status: 403 }) };
   }
   return result;
 }

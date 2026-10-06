@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { MODULES, type ModuleKey } from "@/lib/modules";
+import { MODULES, firstAllowedHref, type ModuleKey } from "@/lib/modules";
 
 const PUBLIC_PREFIXES = [
   "/login",
@@ -127,20 +127,24 @@ export async function middleware(request: NextRequest) {
 
   const isSuperAdmin = profile.role === "superadmin";
 
+  // Un Admin nunca ve una pantalla de "sin permiso": si pide una página
+  // que no tiene habilitada (o una que ni sabe que existe, como
+  // /usuarios), se le lleva en silencio a su primer módulo disponible.
+  function redirectToHome() {
+    const url = request.nextUrl.clone();
+    url.pathname = firstAllowedHref(profile?.module_permissions) ?? "/sin-acceso";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
   if (request.nextUrl.pathname === "/usuarios" || request.nextUrl.pathname.startsWith("/usuarios/")) {
-    if (!isSuperAdmin) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/sin-acceso";
-      return NextResponse.redirect(url);
-    }
+    if (!isSuperAdmin) return redirectToHome();
     return response;
   }
 
   const moduleKey = moduleKeyForPath(request.nextUrl.pathname);
   if (moduleKey && !isSuperAdmin && !(profile.module_permissions ?? []).includes(moduleKey)) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/sin-acceso";
-    return NextResponse.redirect(url);
+    return redirectToHome();
   }
 
   return response;

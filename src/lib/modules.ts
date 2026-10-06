@@ -12,3 +12,24 @@ export const MODULES = [
 ] as const;
 
 export type ModuleKey = (typeof MODULES)[number]["key"];
+
+// Orden en que aparecen los módulos en el menú lateral; define a cuál se
+// lleva a un usuario cuando no tiene permiso para la página que pidió.
+const NAV_ORDER: ModuleKey[] = [
+  "dashboard",
+  "reporte-diario",
+  "distribucion",
+  "proyeccion",
+  "graficos",
+  "status-api",
+  "status-ads",
+];
+
+// Ruta del primer módulo habilitado para el usuario, o null si no tiene
+// ninguno. Así un Admin nunca ve una pantalla de "sin acceso": entra
+// directo a lo que sí puede usar.
+export function firstAllowedHref(permissions: string[] | null | undefined): string | null {
+  const allowed = permissions ?? [];
+  const key = NAV_ORDER.find((k) => allowed.includes(k));
+  return key ? MODULES.find((m) => m.key === key)!.href : null;
+}
