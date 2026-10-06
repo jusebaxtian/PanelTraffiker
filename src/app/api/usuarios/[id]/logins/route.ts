@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { requireSuperAdmin } from "@/lib/auth";
+import { MAX_LOGINS_PER_USER } from "@/lib/loginHistory";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireSuperAdmin();
@@ -13,7 +14,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     .select("*")
     .eq("user_id", id)
     .order("logged_in_at", { ascending: false })
-    .limit(20);
+    .limit(MAX_LOGINS_PER_USER);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
