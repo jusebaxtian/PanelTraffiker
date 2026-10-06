@@ -97,7 +97,9 @@ export function computeOffice(
   const gasto_proyeccion = gasto_total_hoy + proyeccion_cierre;
   const leads_meta = leadsMetaDelMes;
   const leads_crm = leadsDelMes;
-  const costo_x_resultado = leads_crm > 0 ? gasto_total_hoy / leads_crm : 0;
+  // Costo por lead = gasto de la pauta / leads que genera el anuncio
+  // (Leads/FB), igual que en el resto de módulos.
+  const costo_x_resultado = leads_meta > 0 ? gasto_total_hoy / leads_meta : 0;
   const total_mes = gasto_proyeccion;
   const ftd_estimado = costoFtdMes > 0 ? gasto_total_hoy / costoFtdMes : 0;
   const ftd_meta_mes = costoFtdMes > 0 ? total_mes / costoFtdMes : 0;

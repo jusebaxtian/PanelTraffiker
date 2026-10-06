@@ -27,6 +27,8 @@ export function computeReporteDiarioOffice(
   leadsMeta: number,
   leadsCrm: number
 ): ReporteDiarioOfficeComputed {
-  const costo_x_resultado = leadsCrm > 0 ? gasto / leadsCrm : 0;
+  // Costo por resultado = gasto de la pauta / leads que genera el
+  // anuncio (Leads/Meta), igual que en el resto de módulos.
+  const costo_x_resultado = leadsMeta > 0 ? gasto / leadsMeta : 0;
   return { ...office, diario, gasto, leads_meta: leadsMeta, leads_crm: leadsCrm, costo_x_resultado };
 }
