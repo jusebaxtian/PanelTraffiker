@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { AdInsight } from "@/lib/metaAds";
 import { conversationsStarted, video3SecWatchRate, videoAvgTimeWatched } from "@/lib/metaAds";
 import CrmTagPicker from "@/components/CrmTagPicker";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 interface EnrichedInsight extends AdInsight {
   result: number;
@@ -144,6 +145,7 @@ function useColumnWidths() {
 }
 
 export default function Home() {
+  const { isSuperAdmin } = useCurrentUser();
   const [insights, setInsights] = useState<EnrichedInsight[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -520,7 +522,7 @@ export default function Home() {
                           </td>
                           <td className="overflow-hidden px-4 py-3" style={{ color: "var(--series-2)", fontVariantNumeric: "tabular-nums" }}>
                             {row.leads_crm !== null ? number(row.leads_crm) : "-"}
-                            {row.campaign_id && (
+                            {row.campaign_id && isSuperAdmin && (
                               <button
                                 onClick={() => setCrmPickerForCampaignId(row.campaign_id!)}
                                 className="mt-0.5 block truncate text-left text-xs"
@@ -528,6 +530,11 @@ export default function Home() {
                               >
                                 {row.ghl_tag ? row.ghl_tag : "Elegir CRM y etiqueta"} ✎
                               </button>
+                            )}
+                            {row.campaign_id && !isSuperAdmin && row.ghl_tag && (
+                              <span className="mt-0.5 block truncate text-xs" style={{ color: "var(--text-muted)" }}>
+                                {row.ghl_tag}
+                              </span>
                             )}
                           </td>
                           <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>

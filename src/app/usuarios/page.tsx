@@ -20,6 +20,41 @@ interface LoginRecord {
   region: string | null;
   country: string | null;
   ip_address: string | null;
+  user_agent: string | null;
+}
+
+// Tipo de equipo (PC / Celular / Tablet) más sistema y navegador, a partir
+// del user-agent que se guarda en cada ingreso.
+function deviceLabel(ua: string | null): string {
+  if (!ua) return "Dispositivo desconocido";
+  const isTablet = /iPad|Tablet/i.test(ua) || (/Android/i.test(ua) && !/Mobile/i.test(ua));
+  const isMobile = !isTablet && /Mobi|iPhone|iPod|Android/i.test(ua);
+  const kind = isTablet ? "🖥️ Tablet" : isMobile ? "📱 Celular" : "💻 PC";
+
+  const os = /Windows/i.test(ua)
+    ? "Windows"
+    : /iPhone|iPad|iPod/i.test(ua)
+      ? "iOS"
+      : /Android/i.test(ua)
+        ? "Android"
+        : /Mac OS X|Macintosh/i.test(ua)
+          ? "macOS"
+          : /Linux/i.test(ua)
+            ? "Linux"
+            : null;
+  const browser = /Edg\//.test(ua)
+    ? "Edge"
+    : /OPR\/|Opera/.test(ua)
+      ? "Opera"
+      : /Firefox\//.test(ua)
+        ? "Firefox"
+        : /Chrome\/|CriOS/.test(ua)
+          ? "Chrome"
+          : /Safari\//.test(ua)
+            ? "Safari"
+            : null;
+
+  return [kind, os, browser].filter(Boolean).join(" · ");
 }
 
 function fmtDateTime(iso: string) {
@@ -410,11 +445,19 @@ function UserCard({
           {!loadingHistory && history.length > 0 && (
             <div className="space-y-1">
               {history.map((h) => (
-                <div key={h.id} className="flex justify-between text-xs" style={{ color: "var(--text-secondary)" }}>
+                <div
+                  key={h.id}
+                  className="flex flex-wrap items-center justify-between gap-x-4 gap-y-0.5 text-xs"
+                  style={{ color: "var(--text-secondary)" }}
+                >
                   <span>{fmtDateTime(h.logged_in_at)}</span>
                   <span style={{ color: "var(--text-muted)" }}>
                     {[h.city, h.region, h.country].filter(Boolean).join(", ") || "Ciudad desconocida"}
                   </span>
+                  <span style={{ color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
+                    IP {h.ip_address ?? "desconocida"}
+                  </span>
+                  <span>{deviceLabel(h.user_agent)}</span>
                 </div>
               ))}
             </div>

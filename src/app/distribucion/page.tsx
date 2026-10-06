@@ -190,14 +190,12 @@ export default function DistribucionPage() {
         )}
 
         {!loading && (
-          <div
-            className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3"
-            style={!isSuperAdmin ? { pointerEvents: "none", opacity: 0.75 } : undefined}
-          >
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
             {offices.map((office) => (
               <OfficeCard
                 key={office.id}
                 office={office}
+                readOnly={!isSuperAdmin}
                 onDelete={() => deleteOffice(office.id)}
                 onUpdateAdmin={(amount) => updateAdmin(office.id, amount)}
                 onAddAgent={(payload) => addAgent(office.id, payload)}
@@ -217,6 +215,7 @@ export default function DistribucionPage() {
 
 function OfficeCard({
   office,
+  readOnly,
   onDelete,
   onUpdateAdmin,
   onAddAgent,
@@ -224,6 +223,7 @@ function OfficeCard({
   onUpdateAgent,
 }: {
   office: Office;
+  readOnly: boolean;
   onDelete: () => void;
   onUpdateAdmin: (amount: number) => void;
   onAddAgent: (payload: { name: string; type: "junior" | "ejecutivo"; custom_value?: number }) => void;
@@ -279,14 +279,16 @@ function OfficeCard({
           <span className="whitespace-nowrap text-xs font-medium" style={{ color: "#08210a" }}>
             Total agentes: {office.agents.length}
           </span>
-          <button
-            onClick={handleDeleteClick}
-            className="text-sm"
-            style={{ color: "#08210a" }}
-            title="Eliminar oficina"
-          >
-            🗑
-          </button>
+          {!readOnly && (
+            <button
+              onClick={handleDeleteClick}
+              className="text-sm"
+              style={{ color: "#08210a" }}
+              title="Eliminar oficina"
+            >
+              🗑
+            </button>
+          )}
         </div>
       </div>
 
@@ -329,7 +331,7 @@ function OfficeCard({
                   {currency(agentValue(agent))}
                 </td>
                 <td className="py-1.5 pr-2 text-right">
-                  <span className="inline-flex gap-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+                  <span className={`inline-flex gap-1.5 opacity-0 transition-opacity group-hover:opacity-100 ${readOnly ? "hidden" : ""}`}>
                     <button
                       onClick={() => setEditingAgentId(agent.id)}
                       className="text-xs"
@@ -354,6 +356,7 @@ function OfficeCard({
         </tbody>
       </table>
 
+      {!readOnly && (
       <div className="px-4 py-3" style={{ borderTop: "1px solid var(--gridline)" }}>
         {!adding ? (
           <button
@@ -412,6 +415,7 @@ function OfficeCard({
           </div>
         )}
       </div>
+      )}
 
       <div style={{ borderTop: "1px solid var(--gridline)" }}>
         <div className="flex items-center justify-between px-4 py-2">
@@ -426,19 +430,25 @@ function OfficeCard({
           <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
             Admin
           </span>
-          <input
-            type="number"
-            value={adminInput}
-            onChange={(e) => setAdminInput(e.target.value)}
-            onBlur={() => onUpdateAdmin(Number(adminInput) || 0)}
-            className="w-32 rounded-md px-2 py-1 text-right text-sm outline-none"
-            style={{
-              background: "var(--page)",
-              color: "var(--text-secondary)",
-              border: "1px solid var(--border)",
-              fontVariantNumeric: "tabular-nums",
-            }}
-          />
+          {readOnly ? (
+            <span className="text-sm" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+              {currency(office.admin_amount)}
+            </span>
+          ) : (
+            <input
+              type="number"
+              value={adminInput}
+              onChange={(e) => setAdminInput(e.target.value)}
+              onBlur={() => onUpdateAdmin(Number(adminInput) || 0)}
+              className="w-32 rounded-md px-2 py-1 text-right text-sm outline-none"
+              style={{
+                background: "var(--page)",
+                color: "var(--text-secondary)",
+                border: "1px solid var(--border)",
+                fontVariantNumeric: "tabular-nums",
+              }}
+            />
+          )}
         </div>
         <div className="flex items-center justify-between px-4 py-2 pb-3">
           <span className="text-sm" style={{ color: "var(--text-secondary)" }}>

@@ -33,22 +33,46 @@ export default function Sidebar() {
   }, [pathname]);
 
   useEffect(() => {
-    if (pathname === "/login") return;
-    fetch("/api/auth/me")
-      .then((res) => res.json())
-      .then((json) => {
-        if (!json.error) setUser(json.data);
-      })
-      .catch(() => {});
+    // En el login se descarta el usuario anterior: si alguien cierra
+    // sesión y otra persona entra en la misma pestaña, no debe heredar
+    // el menú de la cuenta previa mientras carga el suyo.
+    if (pathname === "/login") {
+      setUser(null);
+      return;
+    }
+    let cancelled = false;
+    async function load(attempt: number) {
+      try {
+        const res = await fetch("/api/auth/me");
+        const json = await res.json();
+        if (!json.error) {
+          if (!cancelled) setUser(json.data);
+          return;
+        }
+      } catch {
+        // se reintenta abajo
+      }
+      if (attempt < 2 && !cancelled) setTimeout(() => load(attempt + 1), 1200);
+    }
+    load(0);
+    return () => {
+      cancelled = true;
+    };
   }, [pathname]);
 
   if (pathname === "/login") return null;
 
   const isSuperAdmin = user?.role === "superadmin";
-  const visibleItems = NAV_ITEMS.filter((item) => !user || isSuperAdmin || user.module_permissions.includes(item.key));
+  // Mientras no se sabe quién es el usuario NO se lista ningún módulo (antes
+  // aparecían todos por un instante): un Admin no debe enterarse de que
+  // existen módulos que no tiene habilitados.
+  const visibleItems = user
+    ? NAV_ITEMS.filter((item) => isSuperAdmin || user.module_permissions.includes(item.key))
+    : [];
 
   async function logout() {
     await supabaseBrowser().auth.signOut();
+    setUser(null);
     router.push("/login");
     router.refresh();
   }
@@ -117,6 +141,15 @@ export default function Sidebar() {
         </div>
 
         <nav className="flex flex-1 flex-col gap-1">
+          {!user &&
+            [0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="h-9 animate-pulse rounded-md"
+                style={{ background: "rgba(255,255,255,0.05)" }}
+                aria-hidden="true"
+              />
+            ))}
           {visibleItems.map((item) => {
             const active = pathname === item.href;
             return (
