@@ -76,7 +76,6 @@ const DATE_PRESETS = [
   { label: "Ayer", value: "yesterday" },
   { label: "7 días", value: "last_7d" },
   { label: "Este mes", value: "this_month" },
-  { label: "Mes anterior", value: "last_month" },
 ] as const;
 
 const COLUMNS = [
