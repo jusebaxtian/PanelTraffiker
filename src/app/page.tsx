@@ -147,7 +147,7 @@ export default function Home() {
   const [insights, setInsights] = useState<EnrichedInsight[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [datePreset, setDatePreset] = useState<string>("last_7d");
+  const [datePreset, setDatePreset] = useState<string>("today");
   const [customRange, setCustomRange] = useState<{ since: string; until: string } | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
