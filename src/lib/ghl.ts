@@ -1,3 +1,5 @@
+import { parseGhlTags } from "@/lib/ghlTags";
+
 const GHL_API_VERSION = "2021-07-28";
 const GHL_BASE_URL = "https://services.leadconnectorhq.com";
 
@@ -14,16 +16,32 @@ function ghlHeaders(accessToken: string) {
   };
 }
 
-// Los contactos vienen ordenados por dateAdded descendente, así que
-// paginamos desde el más reciente y cortamos apenas encontramos uno
-// anterior al inicio del mes — evita recorrer miles de contactos.
+// `storedTag` es el valor guardado en `ghl_tag`: una etiqueta o varias. Con
+// varias se cuentan los contactos que tengan cualquiera de ellas, y uno que
+// tenga más de una se cuenta una sola vez (se deduplica por id).
 export async function countContactsByTagInMonth(
   creds: GhlCredentials,
-  tag: string,
+  storedTag: string,
   monthStart: Date,
   monthEnd: Date
 ): Promise<number> {
-  let count = 0;
+  const contactIds = new Set<string>();
+  await Promise.all(
+    parseGhlTags(storedTag).map((tag) => collectContactIdsByTagInMonth(creds, tag, monthStart, monthEnd, contactIds))
+  );
+  return contactIds.size;
+}
+
+// Los contactos vienen ordenados por dateAdded descendente, así que
+// paginamos desde el más reciente y cortamos apenas encontramos uno
+// anterior al inicio del mes — evita recorrer miles de contactos.
+async function collectContactIdsByTagInMonth(
+  creds: GhlCredentials,
+  tag: string,
+  monthStart: Date,
+  monthEnd: Date,
+  contactIds: Set<string>
+): Promise<void> {
   let searchAfter: [number, string] | null = null;
   const pageLimit = 100;
 
@@ -47,14 +65,14 @@ export async function countContactsByTagInMonth(
       throw new Error(json.message ?? "Error consultando leads de GoHighLevel");
     }
 
-    const contacts: Array<{ dateAdded: string; searchAfter: [number, string] }> = json.contacts ?? [];
+    const contacts: Array<{ id: string; dateAdded: string; searchAfter: [number, string] }> = json.contacts ?? [];
     if (contacts.length === 0) break;
 
     let hitOlderThanMonth = false;
     for (const c of contacts) {
       const created = new Date(c.dateAdded);
       if (created >= monthStart && created < monthEnd) {
-        count++;
+        contactIds.add(c.id);
       } else if (created < monthStart) {
         hitOlderThanMonth = true;
         break;
@@ -66,8 +84,6 @@ export async function countContactsByTagInMonth(
 
     searchAfter = contacts[contacts.length - 1].searchAfter;
   }
-
-  return count;
 }
 
 // La cuenta no tiene scope para /locations/{id}/tags, así que se arma la

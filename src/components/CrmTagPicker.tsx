@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { parseGhlTags, serializeGhlTags } from "@/lib/ghlTags";
 
 interface CrmConnection {
   id: string;
@@ -30,7 +31,7 @@ export default function CrmTagPicker({
   const [loadingTags, setLoadingTags] = useState(false);
   const [tagsError, setTagsError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [pickedTag, setPickedTag] = useState<string | null>(selectedTag);
+  const [pickedTags, setPickedTags] = useState<string[]>(() => parseGhlTags(selectedTag));
 
   const [showNewConnection, setShowNewConnection] = useState(connections.length === 0);
   const [newName, setNewName] = useState("");
@@ -64,13 +65,30 @@ export default function CrmTagPicker({
       .finally(() => setLoadingTags(false));
   }, [connectionId, tagsRefreshKey]);
 
-  const filteredTags = useMemo(() => {
-    if (!search.trim()) return tags;
-    const q = search.trim().toLowerCase();
-    return tags.filter((t) => t.toLowerCase().includes(q));
-  }, [tags, search]);
+  // Una etiqueta ya elegida que no está en la lista consultada (por ejemplo una
+  // escrita a mano) debe seguir apareciendo para poder desmarcarla.
+  const availableTags = useMemo(
+    () => [...pickedTags.filter((t) => !tags.includes(t)), ...tags],
+    [tags, pickedTags]
+  );
 
-  const searchIsNewTag = search.trim() && !tags.some((t) => t.toLowerCase() === search.trim().toLowerCase());
+  const filteredTags = useMemo(() => {
+    if (!search.trim()) return availableTags;
+    const q = search.trim().toLowerCase();
+    return availableTags.filter((t) => t.toLowerCase().includes(q));
+  }, [availableTags, search]);
+
+  const searchIsNewTag =
+    search.trim() && !availableTags.some((t) => t.toLowerCase() === search.trim().toLowerCase());
+
+  function toggleTag(tag: string) {
+    setPickedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
+  }
+
+  function addNewTag() {
+    toggleTag(search.trim());
+    setSearch("");
+  }
 
   async function createConnection() {
     if (!newName.trim() || !newLocationId.trim() || !newToken.trim()) return;
@@ -157,7 +175,7 @@ export default function CrmTagPicker({
                   checked={connectionId === c.id}
                   onChange={() => {
                     setConnectionId(c.id);
-                    setPickedTag(null);
+                    setPickedTags([]);
                   }}
                 />
                 <span style={{ color: "var(--text-primary)" }}>{c.name}</span>
@@ -265,8 +283,13 @@ export default function CrmTagPicker({
           {connectionId && (
             <>
               <p className="mb-1 mt-4 text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-                Etiqueta de leads
+                Etiquetas de leads{pickedTags.length > 0 ? ` (${pickedTags.length} seleccionadas)` : ""}
               </p>
+              {pickedTags.length > 1 && (
+                <p className="mb-2 text-xs" style={{ color: "var(--text-muted)" }}>
+                  Se cuentan los leads que tengan cualquiera de las etiquetas, sin repetir.
+                </p>
+              )}
               <input
                 type="text"
                 placeholder="Buscar o escribir etiqueta..."
@@ -278,7 +301,7 @@ export default function CrmTagPicker({
               {loadingTags && <p style={{ color: "var(--text-muted)" }}>Cargando etiquetas...</p>}
               {tagsError && <p style={{ color: "var(--critical)" }}>{tagsError}</p>}
               <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm" style={{ color: "var(--text-secondary)" }}>
-                <input type="radio" name="tag" checked={pickedTag === null} onChange={() => setPickedTag(null)} />
+                <input type="radio" name="tag" checked={pickedTags.length === 0} onChange={() => setPickedTags([])} />
                 <span style={{ color: "var(--text-muted)" }}>Sin etiqueta</span>
               </label>
               {!loadingTags &&
@@ -288,7 +311,7 @@ export default function CrmTagPicker({
                     className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm"
                     style={{ color: "var(--text-secondary)" }}
                   >
-                    <input type="radio" name="tag" checked={pickedTag === t} onChange={() => setPickedTag(t)} />
+                    <input type="checkbox" checked={pickedTags.includes(t)} onChange={() => toggleTag(t)} />
                     <span className="truncate" style={{ color: "var(--text-primary)" }}>
                       {t}
                     </span>
@@ -296,7 +319,7 @@ export default function CrmTagPicker({
                 ))}
               {!loadingTags && searchIsNewTag && (
                 <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm" style={{ color: "var(--text-secondary)" }}>
-                  <input type="radio" name="tag" checked={pickedTag === search.trim()} onChange={() => setPickedTag(search.trim())} />
+                  <input type="checkbox" checked={false} onChange={addNewTag} />
                   <span style={{ color: "var(--brand)" }}>Usar &quot;{search.trim()}&quot;</span>
                 </label>
               )}
@@ -309,7 +332,7 @@ export default function CrmTagPicker({
             Cancelar
           </button>
           <button
-            onClick={() => onSave(connectionId, pickedTag)}
+            onClick={() => onSave(connectionId, serializeGhlTags(pickedTags))}
             className="rounded-md px-3 py-2 text-sm font-medium"
             style={{ background: "var(--brand)", color: "#ffffff" }}
           >

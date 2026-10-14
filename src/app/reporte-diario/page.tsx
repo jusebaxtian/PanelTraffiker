@@ -6,6 +6,7 @@ import { officeTotal, type Agent } from "@/lib/distribucion";
 import CampaignPicker from "@/components/CampaignPicker";
 import OfficePicker from "@/components/OfficePicker";
 import CrmTagPicker from "@/components/CrmTagPicker";
+import { formatGhlTags } from "@/lib/ghlTags";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import ScrollDropdown from "@/components/ScrollDropdown";
 
@@ -451,11 +452,11 @@ function OfficeRow({
             className="mt-0.5 block truncate text-left text-xs"
             style={{ color: office.ghl_tag && linkedCrmName ? "var(--text-muted)" : "var(--brand)" }}
           >
-            {linkedCrmName && office.ghl_tag ? `${linkedCrmName}: ${office.ghl_tag}` : "Elegir CRM y etiqueta"} ✎
+            {linkedCrmName && office.ghl_tag ? `${linkedCrmName}: ${formatGhlTags(office.ghl_tag)}` : "Elegir CRM y etiqueta"} ✎
           </button>
         ) : (
           <span className="mt-0.5 block truncate text-xs" style={{ color: "var(--text-muted)" }}>
-            {linkedCrmName && office.ghl_tag ? `${linkedCrmName}: ${office.ghl_tag}` : "Sin vincular"}
+            {linkedCrmName && office.ghl_tag ? `${linkedCrmName}: ${formatGhlTags(office.ghl_tag)}` : "Sin vincular"}
           </span>
         )}
       </td>

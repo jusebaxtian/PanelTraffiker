@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { AdInsight } from "@/lib/metaAds";
 import { conversationsStarted, video3SecWatchRate, videoAvgTimeWatched } from "@/lib/metaAds";
 import CrmTagPicker from "@/components/CrmTagPicker";
+import { formatGhlTags } from "@/lib/ghlTags";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 interface EnrichedInsight extends AdInsight {
@@ -527,12 +528,12 @@ export default function Home() {
                                 className="mt-0.5 block truncate text-left text-xs"
                                 style={{ color: row.ghl_tag ? "var(--text-muted)" : "var(--brand)" }}
                               >
-                                {row.ghl_tag ? row.ghl_tag : "Elegir CRM y etiqueta"} ✎
+                                {row.ghl_tag ? formatGhlTags(row.ghl_tag) : "Elegir CRM y etiqueta"} ✎
                               </button>
                             )}
                             {row.campaign_id && !isSuperAdmin && row.ghl_tag && (
                               <span className="mt-0.5 block truncate text-xs" style={{ color: "var(--text-muted)" }}>
-                                {row.ghl_tag}
+                                {formatGhlTags(row.ghl_tag)}
                               </span>
                             )}
                           </td>
