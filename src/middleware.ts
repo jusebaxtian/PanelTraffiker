@@ -137,7 +137,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (request.nextUrl.pathname === "/usuarios" || request.nextUrl.pathname.startsWith("/usuarios/")) {
+  // Páginas exclusivas de SuperAdmin: un Admin ni siquiera sabe que existen.
+  const SUPERADMIN_ONLY = ["/usuarios", "/como-ven-mis-anuncios"];
+  if (SUPERADMIN_ONLY.some((p) => request.nextUrl.pathname === p || request.nextUrl.pathname.startsWith(p + "/"))) {
     if (!isSuperAdmin) return redirectToHome();
     return response;
   }

@@ -169,6 +169,19 @@ export default function Sidebar() {
           })}
           {isSuperAdmin && (
             <Link
+              href="/como-ven-mis-anuncios"
+              onClick={() => setOpen(false)}
+              className="rounded-md px-3 py-2 text-sm font-medium transition-colors"
+              style={{
+                background: pathname === "/como-ven-mis-anuncios" ? "var(--brand)" : "transparent",
+                color: pathname === "/como-ven-mis-anuncios" ? "#ffffff" : "var(--text-secondary)",
+              }}
+            >
+              ¿Cómo ven mis anuncios?
+            </Link>
+          )}
+          {isSuperAdmin && (
+            <Link
               href="/usuarios"
               onClick={() => setOpen(false)}
               className="rounded-md px-3 py-2 text-sm font-medium transition-colors"

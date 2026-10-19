@@ -1,7 +1,7 @@
 import { supabaseServer } from "@/lib/supabaseServer";
 
 const META_API_VERSION = "v21.0";
-const META_BASE_URL = `https://graph.facebook.com/${META_API_VERSION}`;
+export const META_BASE_URL = `https://graph.facebook.com/${META_API_VERSION}`;
 
 export interface AdAccountConnection {
   accountId: string;
