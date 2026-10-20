@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireSuperAdmin } from "@/lib/auth";
+import { requireModuleAccess } from "@/lib/auth";
 import { fetchMisAnuncios } from "@/lib/misAnuncios";
 import { bogotaPresetToRange } from "@/lib/bogota";
 
-// Módulo "Mis Anuncios": solo lectura y solo SuperAdmin.
+// Módulo "Mis Anuncios": solo lectura; SuperAdmin o Admin con el módulo habilitado.
 export async function GET(request: NextRequest) {
-  const auth = await requireSuperAdmin();
+  const auth = await requireModuleAccess("mis-anuncios");
   if ("error" in auth) return auth.error;
 
   const params = request.nextUrl.searchParams;

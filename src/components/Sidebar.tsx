@@ -13,6 +13,8 @@ const NAV_ITEMS = [
   { label: "Gráficos", href: "/graficos", key: "graficos" },
   { label: "Status API", href: "/status-api", key: "status-api" },
   { label: "Status Ads", href: "/status-ads", key: "status-ads" },
+  { label: "Mis Anuncios", href: "/mis-anuncios", key: "mis-anuncios" },
+  { label: "¿Cómo ven mis anuncios?", href: "/como-ven-mis-anuncios", key: "como-ven" },
 ] as const;
 
 interface CurrentUser {
@@ -167,32 +169,6 @@ export default function Sidebar() {
               </Link>
             );
           })}
-          {isSuperAdmin && (
-            <Link
-              href="/mis-anuncios"
-              onClick={() => setOpen(false)}
-              className="rounded-md px-3 py-2 text-sm font-medium transition-colors"
-              style={{
-                background: pathname === "/mis-anuncios" ? "var(--brand)" : "transparent",
-                color: pathname === "/mis-anuncios" ? "#ffffff" : "var(--text-secondary)",
-              }}
-            >
-              Mis Anuncios
-            </Link>
-          )}
-          {isSuperAdmin && (
-            <Link
-              href="/como-ven-mis-anuncios"
-              onClick={() => setOpen(false)}
-              className="rounded-md px-3 py-2 text-sm font-medium transition-colors"
-              style={{
-                background: pathname === "/como-ven-mis-anuncios" ? "var(--brand)" : "transparent",
-                color: pathname === "/como-ven-mis-anuncios" ? "#ffffff" : "var(--text-secondary)",
-              }}
-            >
-              ¿Cómo ven mis anuncios?
-            </Link>
-          )}
           {isSuperAdmin && (
             <Link
               href="/usuarios"

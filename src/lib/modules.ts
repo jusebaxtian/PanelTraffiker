@@ -9,6 +9,8 @@ export const MODULES = [
   { key: "proyeccion", label: "Proyección", href: "/proyeccion" },
   { key: "status-api", label: "Status API", href: "/status-api" },
   { key: "status-ads", label: "Status Ads", href: "/status-ads" },
+  { key: "mis-anuncios", label: "Mis Anuncios", href: "/mis-anuncios" },
+  { key: "como-ven", label: "¿Cómo ven mis anuncios?", href: "/como-ven-mis-anuncios" },
 ] as const;
 
 export type ModuleKey = (typeof MODULES)[number]["key"];
@@ -23,6 +25,8 @@ const NAV_ORDER: ModuleKey[] = [
   "graficos",
   "status-api",
   "status-ads",
+  "mis-anuncios",
+  "como-ven",
 ];
 
 // Ruta del primer módulo habilitado para el usuario, o null si no tiene

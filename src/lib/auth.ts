@@ -71,6 +71,17 @@ export async function requireWriteAccess(): Promise<AuthResult> {
   return result;
 }
 
+// Acceso de lectura a un módulo: SuperAdmin siempre, Admin solo si el
+// módulo está habilitado en sus permisos.
+export async function requireModuleAccess(moduleKey: ModuleKey): Promise<AuthResult> {
+  const result = await requireUser();
+  if ("error" in result) return result;
+  if (!hasModuleAccess(result.user, moduleKey)) {
+    return { error: NextResponse.json({ error: "No tienes acceso a este módulo" }, { status: 403 }) };
+  }
+  return result;
+}
+
 // Permite escribir a SuperAdmin siempre, y a Admin solo si tiene
 // permiso de ver ese módulo (ej. la config de Proyección).
 export async function requireModuleWriteAccess(moduleKey: ModuleKey): Promise<AuthResult> {

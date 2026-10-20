@@ -138,7 +138,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Páginas exclusivas de SuperAdmin: un Admin ni siquiera sabe que existen.
-  const SUPERADMIN_ONLY = ["/usuarios", "/como-ven-mis-anuncios", "/mis-anuncios"];
+  const SUPERADMIN_ONLY = ["/usuarios"];
   if (SUPERADMIN_ONLY.some((p) => request.nextUrl.pathname === p || request.nextUrl.pathname.startsWith(p + "/"))) {
     if (!isSuperAdmin) return redirectToHome();
     return response;

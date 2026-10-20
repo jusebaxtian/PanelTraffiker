@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireSuperAdmin } from "@/lib/auth";
+import { requireModuleAccess } from "@/lib/auth";
 import { getAllAdAccountConnections, META_BASE_URL } from "@/lib/metaAds";
 
 // Devuelve la URL del iframe de vista previa oficial de Meta para un
@@ -7,7 +7,7 @@ import { getAllAdAccountConnections, META_BASE_URL } from "@/lib/metaAds";
 const FORMATS = ["MOBILE_FEED_STANDARD", "INSTAGRAM_STANDARD", "INSTAGRAM_STORY"] as const;
 
 export async function GET(request: NextRequest) {
-  const auth = await requireSuperAdmin();
+  const auth = await requireModuleAccess("mis-anuncios");
   if ("error" in auth) return auth.error;
 
   const params = request.nextUrl.searchParams;

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireSuperAdmin } from "@/lib/auth";
+import { requireModuleAccess } from "@/lib/auth";
 import { fetchGeoInsights } from "@/lib/geoInsights";
 import { bogotaPresetToRange } from "@/lib/bogota";
 
-// Módulo "¿Cómo ven mis anuncios?": solo lectura y solo SuperAdmin.
+// Módulo "¿Cómo ven mis anuncios?": solo lectura; SuperAdmin o Admin con el módulo habilitado.
 export async function GET(request: NextRequest) {
-  const auth = await requireSuperAdmin();
+  const auth = await requireModuleAccess("como-ven");
   if ("error" in auth) return auth.error;
 
   const params = request.nextUrl.searchParams;
