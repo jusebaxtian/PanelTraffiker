@@ -9,7 +9,6 @@ import {
   HEALTH_LABEL,
   TREND_LABEL,
   VERDICT_META,
-  winnerPatterns,
   type AdDay,
   type AdLifetime,
   type AdPeriodStats,
@@ -176,22 +175,6 @@ export default function MisAnunciosPage() {
   const byVerdict = (v: Verdict) => scoped.filter((a) => a.diagnosis.verdict === v).sort((a, b) => b.cur.spend - a.cur.spend);
 
   const wasted = useMemo(() => byVerdict("apagar").reduce((s, a) => s + a.cur.spend, 0), [scoped]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const patterns = useMemo(() => {
-    const toPattern = (a: AdReport) => ({
-      verdict: a.diagnosis.verdict,
-      cpr: a.diagnosis.cpr,
-      results: a.cur.results,
-      spend: a.cur.spend,
-      ctr: a.cur.ctr,
-      cpm: a.cur.cpm,
-      format: a.format,
-      cta: a.cta,
-      body: a.body,
-      title: a.title,
-    });
-    return winnerPatterns(best.map(toPattern), worst.map(toPattern));
-  }, [best, worst]);
 
   const list = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -440,50 +423,6 @@ export default function MisAnunciosPage() {
                   )}
                 </Section>
               </div>
-            )}
-
-            {/* ---------- Qué replicar ---------- */}
-            {best.length > 0 && (
-              <Section title="Qué replicar: lo que tienen en común tus mejores anuncios" subtitle="Úsalo de referencia para crear contenido nuevo parecido a lo que ya funciona.">
-                {patterns.length > 0 ? (
-                  <ul className="mb-4 list-disc space-y-1.5 pl-5 text-sm" style={{ color: "var(--text-primary)" }}>
-                    {patterns.map((p) => (
-                      <li key={p}>{p}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="mb-4 text-sm" style={{ color: "var(--text-muted)" }}>
-                    Todavía no hay un patrón claro entre tus mejores y peores anuncios; mira cada ganador abajo.
-                  </p>
-                )}
-                <div className="grid gap-4 md:grid-cols-2">
-                  {best.slice(0, 4).map((a) => (
-                    <div key={a.ad_id} className="rounded-lg p-3" style={{ background: "var(--surface-raised)" }}>
-                      <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                        {a.ad_name}
-                      </p>
-                      <p className="mb-2 text-xs" style={{ color: "var(--text-muted)" }}>
-                        {FORMAT_LABEL[a.format]} · {a.cta ? (CTA_LABEL[a.cta] ?? a.cta) : "sin botón"} · {money(a.diagnosis.cpr)} por resultado · CTR {dec(a.cur.ctr)}%
-                      </p>
-                      {a.title && (
-                        <p className="text-sm" style={{ color: "var(--text-primary)" }}>
-                          <span style={{ color: "var(--text-muted)" }}>Titular: </span>
-                          {a.title}
-                        </p>
-                      )}
-                      {a.body && (
-                        <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-                          <span style={{ color: "var(--text-muted)" }}>Texto: </span>
-                          {a.body.length > 220 ? a.body.slice(0, 220) + "…" : a.body}
-                        </p>
-                      )}
-                      <p className="mt-2 text-xs" style={{ color: "var(--series-2)" }}>
-                        Para crear uno parecido: conserva el formato ({FORMAT_LABEL[a.format].toLowerCase()}), el ángulo del titular y el botón; cambia la imagen o los primeros segundos y la primera frase del texto.
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </Section>
             )}
 
             {/* ---------- Todos ---------- */}
