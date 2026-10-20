@@ -3,7 +3,7 @@ import { requireModuleAccess } from "@/lib/auth";
 import { fetchGeoInsights } from "@/lib/geoInsights";
 import { bogotaPresetToRange } from "@/lib/bogota";
 
-// Módulo "¿Cómo ven mis anuncios?": solo lectura; SuperAdmin o Admin con el módulo habilitado.
+// Módulo "Mapa Geográfica": solo lectura; SuperAdmin o Admin con el módulo habilitado.
 export async function GET(request: NextRequest) {
   const auth = await requireModuleAccess("como-ven");
   if ("error" in auth) return auth.error;

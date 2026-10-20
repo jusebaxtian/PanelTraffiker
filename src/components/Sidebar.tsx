@@ -14,7 +14,7 @@ const NAV_ITEMS = [
   { label: "Status API", href: "/status-api", key: "status-api" },
   { label: "Status Ads", href: "/status-ads", key: "status-ads" },
   { label: "Mis Anuncios", href: "/mis-anuncios", key: "mis-anuncios" },
-  { label: "¿Cómo ven mis anuncios?", href: "/como-ven-mis-anuncios", key: "como-ven" },
+  { label: "Mapa Geográfica", href: "/como-ven-mis-anuncios", key: "como-ven" },
 ] as const;
 
 interface CurrentUser {

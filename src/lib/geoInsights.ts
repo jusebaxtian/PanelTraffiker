@@ -1,6 +1,6 @@
 import { getAllAdAccountConnections, conversationsStarted, META_BASE_URL, type ActionValue } from "@/lib/metaAds";
 
-// Datos del módulo "¿Cómo ven mis anuncios?": rendimiento por país y
+// Datos del módulo "Mapa Geográfica": rendimiento por país y
 // región (departamento/estado) y, aparte, por género y edad. Meta NO
 // permite cruzar región/país con género/edad en la misma consulta
 // (error "combinación de desgloses inválida"), así que son dos vistas

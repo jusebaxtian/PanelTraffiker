@@ -241,7 +241,7 @@ export default function ComoVenMisAnunciosPage() {
         style={{ background: "var(--page)", borderBottom: "1px solid var(--border)" }}
       >
         <span className="text-lg font-semibold tracking-tight" style={{ color: "var(--text-primary)" }}>
-          ¿Cómo ven mis anuncios?
+          Mapa Geográfica
         </span>
         <span className="hidden text-sm sm:block" style={{ color: "var(--text-muted)" }}>
           Dónde se muestran y cuánto cuestan por zona
