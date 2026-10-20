@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { requireSuperAdmin } from "@/lib/auth";
+import { requireSuperAdmin, getProtectedSuperAdminId } from "@/lib/auth";
 
 export async function GET() {
   const auth = await requireSuperAdmin();
@@ -13,7 +13,8 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ data });
+  const protectedId = await getProtectedSuperAdminId();
+  return NextResponse.json({ data: (data ?? []).map((u) => ({ ...u, is_protected: u.id === protectedId })) });
 }
 
 export async function POST(request: NextRequest) {

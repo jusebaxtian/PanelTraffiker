@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { requireSuperAdmin } from "@/lib/auth";
+import { requireSuperAdmin, getProtectedSuperAdminId, PROTECTED_USER_MESSAGE } from "@/lib/auth";
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireSuperAdmin();
@@ -9,6 +9,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const { id } = await params;
   const supabase = supabaseServer();
   const body = await request.json();
+
+  if (id === (await getProtectedSuperAdminId())) {
+    const removesAccess = body.active === false || (body.role !== undefined && body.role !== "superadmin");
+    if (removesAccess) {
+      return NextResponse.json({ error: PROTECTED_USER_MESSAGE }, { status: 403 });
+    }
+  }
 
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (typeof body.full_name === "string") updates.full_name = body.full_name.trim();
@@ -42,6 +49,10 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
   const { id } = await params;
   const supabase = supabaseServer();
+
+  if (id === (await getProtectedSuperAdminId())) {
+    return NextResponse.json({ error: PROTECTED_USER_MESSAGE }, { status: 403 });
+  }
 
   const { error } = await supabase.auth.admin.deleteUser(id);
   if (error) {

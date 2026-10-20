@@ -11,6 +11,7 @@ interface UserRow {
   active: boolean;
   module_permissions: string[];
   created_at: string;
+  is_protected?: boolean;
 }
 
 interface LoginRecord {
@@ -102,7 +103,8 @@ export default function UsuariosPage() {
 
   async function deleteUser(id: string) {
     setUsers((prev) => prev.filter((u) => u.id !== id));
-    await fetch(`/api/usuarios/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/usuarios/${id}`, { method: "DELETE" });
+    if (!res.ok) loadUsers();
   }
 
   return (
@@ -347,6 +349,11 @@ function UserCard({
             >
               {user.role === "superadmin" ? "SuperAdmin" : "Admin"}
             </span>
+            {user.is_protected && (
+              <span className="ml-2 rounded px-1.5 py-0.5 text-xs font-medium" style={{ background: "var(--page)", color: "var(--good)", border: "1px solid var(--good)" }}>
+                Cuenta principal
+              </span>
+            )}
             {!user.active && (
               <span className="ml-2 rounded px-1.5 py-0.5 text-xs font-medium" style={{ background: "var(--critical)", color: "#fff" }}>
                 Inactivo
@@ -358,13 +365,15 @@ function UserCard({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => onUpdate({ active: !user.active })}
-            className="rounded-md px-3 py-1.5 text-xs font-medium"
-            style={{ background: "var(--page)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
-          >
-            {user.active ? "Desactivar" : "Activar"}
-          </button>
+          {!user.is_protected && (
+            <button
+              onClick={() => onUpdate({ active: !user.active })}
+              className="rounded-md px-3 py-1.5 text-xs font-medium"
+              style={{ background: "var(--page)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
+            >
+              {user.active ? "Desactivar" : "Activar"}
+            </button>
+          )}
           <button
             onClick={onToggleHistory}
             className="rounded-md px-3 py-1.5 text-xs font-medium"
@@ -372,7 +381,7 @@ function UserCard({
           >
             {showHistory ? "Ocultar conexiones" : "Ver conexiones"}
           </button>
-          {confirmingDelete ? (
+          {user.is_protected ? null : confirmingDelete ? (
             <button
               onClick={() => {
                 setConfirmingDelete(false);

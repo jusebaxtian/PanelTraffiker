@@ -50,6 +50,23 @@ export async function requireUser(): Promise<AuthResult> {
   return { user };
 }
 
+// Cuenta principal del sistema: el primer SuperAdmin que se creó. No se
+// puede eliminar, desactivar ni quitarle el rol, para que el dueño nunca
+// pueda quedar fuera del panel (ni por error ni por otro SuperAdmin).
+export async function getProtectedSuperAdminId(): Promise<string | null> {
+  const supabase = supabaseServer();
+  const { data } = await supabase
+    .from("user_profiles")
+    .select("id")
+    .eq("role", "superadmin")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
+export const PROTECTED_USER_MESSAGE = "Esta es la cuenta principal del sistema: no se puede eliminar, desactivar ni cambiarle el rol.";
+
 export async function requireSuperAdmin(): Promise<AuthResult> {
   const result = await requireUser();
   if ("error" in result) return result;
