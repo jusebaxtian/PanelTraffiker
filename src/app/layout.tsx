@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Sidebar from "@/components/Sidebar";
+import InactivityGuard from "@/components/InactivityGuard";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -36,6 +37,7 @@ export default function RootLayout({
     >
       <body className="flex min-h-full flex-col md:flex-row">
         <Sidebar />
+        <InactivityGuard />
         <div className="min-h-full min-w-0 flex-1 pt-14 md:pt-0">{children}</div>
       </body>
     </html>

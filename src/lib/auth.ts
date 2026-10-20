@@ -1,4 +1,6 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { ACTIVITY_COOKIE, isSessionExpired } from "@/lib/inactivity";
 import { supabaseServerAuth } from "@/lib/supabaseServerAuth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import type { ModuleKey } from "@/lib/modules";
@@ -25,6 +27,11 @@ export async function getCurrentUser(): Promise<UserProfile | null> {
   const supabase = supabaseServer();
   const { data: profile } = await supabase.from("user_profiles").select("*").eq("id", user.id).maybeSingle();
   if (!profile || !profile.active) return null;
+
+  // Un Admin que lleva más de 30 minutos sin actividad ya no tiene sesión
+  // válida (el SuperAdmin nunca se vence).
+  const cookieStore = await cookies();
+  if (isSessionExpired(profile.role, cookieStore.get(ACTIVITY_COOKIE)?.value, user.last_sign_in_at)) return null;
 
   return {
     id: profile.id,

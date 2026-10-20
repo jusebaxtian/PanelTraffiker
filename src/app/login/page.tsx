@@ -26,7 +26,13 @@ function LoginForm() {
       return;
     }
 
-    fetch("/api/auth/record-login", { method: "POST" }).catch(() => {});
+    // Se espera el registro: además de guardar el ingreso, deja lista la
+    // cookie de actividad antes de entrar al panel.
+    await fetch("/api/auth/record-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event: "login" }),
+    }).catch(() => {});
 
     const next = searchParams.get("next") ?? "/";
     router.push(next);

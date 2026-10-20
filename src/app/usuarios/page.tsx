@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { MODULES } from "@/lib/modules";
+import { LOGIN_EVENT_LABEL } from "@/lib/inactivity";
 
 interface UserRow {
   id: string;
@@ -22,6 +23,7 @@ interface LoginRecord {
   country: string | null;
   ip_address: string | null;
   user_agent: string | null;
+  event?: string;
 }
 
 // Tipo de equipo (PC / Celular / Tablet) más sistema y navegador, a partir
@@ -459,7 +461,18 @@ function UserCard({
                   className="flex flex-wrap items-center justify-between gap-x-4 gap-y-0.5 text-xs"
                   style={{ color: "var(--text-secondary)" }}
                 >
-                  <span>{fmtDateTime(h.logged_in_at)}</span>
+                  <span>
+                    {fmtDateTime(h.logged_in_at)}{" "}
+                    <span
+                      className="ml-1 rounded px-1.5 py-0.5 text-[11px] font-medium"
+                      style={{
+                        color: h.event === "timeout" ? "var(--series-3)" : h.event === "resume" ? "var(--series-4)" : "var(--good)",
+                        border: "1px solid currentColor",
+                      }}
+                    >
+                      {LOGIN_EVENT_LABEL[h.event ?? "login"] ?? "Inició sesión"}
+                    </span>
+                  </span>
                   <span style={{ color: "var(--text-muted)" }}>
                     {[h.city, h.region, h.country].filter(Boolean).join(", ") || "Ciudad desconocida"}
                   </span>

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { MODULES, firstAllowedHref, type ModuleKey } from "@/lib/modules";
+import { ACTIVITY_COOKIE, activityCookieOptions, isSessionExpired } from "@/lib/inactivity";
 
 const PUBLIC_PREFIXES = [
   "/login",
@@ -126,6 +127,25 @@ export async function middleware(request: NextRequest) {
   }
 
   const isSuperAdmin = profile.role === "superadmin";
+
+  // Cierre por inactividad (solo Admin): si pasaron más de 30 minutos sin
+  // actividad se cierra la sesión sin avisar y se lleva al login.
+  if (!isSuperAdmin) {
+    const activityCookie = request.cookies.get(ACTIVITY_COOKIE)?.value;
+    if (isSessionExpired(profile.role, activityCookie, user.last_sign_in_at)) {
+      await supabase.auth.signOut().catch(() => {});
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.search = "";
+      const redirect = NextResponse.redirect(url);
+      response.cookies.getAll().forEach((c) => redirect.cookies.set(c));
+      redirect.cookies.delete(ACTIVITY_COOKIE);
+      return redirect;
+    }
+    // Sesiones abiertas antes de esta función no traen la cookie: se
+    // inicializa para empezar a contar desde ahora.
+    if (!activityCookie) response.cookies.set(ACTIVITY_COOKIE, String(Date.now()), activityCookieOptions);
+  }
 
   // Un Admin nunca ve una pantalla de "sin permiso": si pide una página
   // que no tiene habilitada (o una que ni sabe que existe, como
