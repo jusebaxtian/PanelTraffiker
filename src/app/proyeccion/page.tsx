@@ -6,7 +6,7 @@ import { officeTotal, type Agent } from "@/lib/distribucion";
 import CampaignPicker from "@/components/CampaignPicker";
 import OfficePicker from "@/components/OfficePicker";
 import CrmTagPicker from "@/components/CrmTagPicker";
-import { formatGhlTags } from "@/lib/ghlTags";
+import TagChips from "@/components/TagChips";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { bogotaNowClient } from "@/lib/bogota";
 import ScrollDropdown from "@/components/ScrollDropdown";
@@ -648,14 +648,14 @@ function OfficeRow({
         {isSuperAdmin && !closed ? (
           <button
             onClick={onOpenCrmPicker}
-            className="mt-0.5 block truncate text-left text-xs"
+            className="mt-0.5 block w-full text-left text-xs"
             style={{ color: office.ghl_tag && linkedCrmName ? "var(--text-muted)" : "var(--brand)" }}
           >
-            {linkedCrmName && office.ghl_tag ? `${linkedCrmName}: ${formatGhlTags(office.ghl_tag)}` : "Elegir CRM y etiqueta"} ✎
+            {linkedCrmName && office.ghl_tag ? <TagChips stored={office.ghl_tag} prefix={`${linkedCrmName}:`} /> : "Elegir CRM y etiqueta"} ✎
           </button>
         ) : (
-          <span className="mt-0.5 block truncate text-xs" style={{ color: "var(--text-muted)" }}>
-            {linkedCrmName && office.ghl_tag ? `${linkedCrmName}: ${formatGhlTags(office.ghl_tag)}` : "Sin vincular"}
+          <span className="mt-0.5 block text-xs" style={{ color: "var(--text-muted)" }}>
+            {linkedCrmName && office.ghl_tag ? <TagChips stored={office.ghl_tag} prefix={`${linkedCrmName}:`} /> : "Sin vincular"}
           </span>
         )}
       </td>

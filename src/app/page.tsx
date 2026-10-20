@@ -4,7 +4,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { AdInsight } from "@/lib/metaAds";
 import { conversationsStarted, video3SecWatchRate, videoAvgTimeWatched } from "@/lib/metaAds";
 import CrmTagPicker from "@/components/CrmTagPicker";
-import { parseGhlTags } from "@/lib/ghlTags";
+import TagChips from "@/components/TagChips";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 interface EnrichedInsight extends AdInsight {
@@ -96,26 +96,6 @@ const COLUMNS = [
 
 const COLUMN_WIDTHS_STORAGE_KEY = "paneltraffiker.columnWidths";
 const MIN_COLUMN_WIDTH = 70;
-
-// Etiquetas de GHL de una campaña: cada una en su ficha, acomodadas en
-// varias líneas dentro del ancho de la columna (en vez de cortarse con "…"
-// o estirar la columna cuando hay muchas).
-function TagChips({ stored }: { stored: string | null | undefined }) {
-  const tags = parseGhlTags(stored);
-  return (
-    <span className="inline-flex max-w-full flex-wrap gap-1 align-top">
-      {tags.map((tag) => (
-        <span
-          key={tag}
-          className="max-w-full break-words rounded px-1.5 py-0.5 leading-tight"
-          style={{ background: "rgba(255,255,255,0.06)", overflowWrap: "anywhere" }}
-        >
-          {tag}
-        </span>
-      ))}
-    </span>
-  );
-}
 
 function useColumnWidths() {
   const [widths, setWidths] = useState<Record<string, number>>(() => {
