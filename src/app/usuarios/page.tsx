@@ -13,6 +13,15 @@ interface UserRow {
   module_permissions: string[];
   created_at: string;
   is_protected?: boolean;
+  last_activity?: {
+    at: string;
+    ip: string | null;
+    city: string | null;
+    region: string | null;
+    country: string | null;
+    user_agent: string | null;
+    exact: boolean;
+  } | null;
 }
 
 interface LoginRecord {
@@ -68,6 +77,30 @@ function fmtDateTime(iso: string) {
   });
 }
 
+// "Hoy 4:24 p. m." / "Ayer 9:10 a. m." / "20 oct 4:24 p. m." en hora de Colombia.
+function fmtLastActivity(iso: string): string {
+  const tz = "America/Bogota";
+  const day = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: tz });
+  const time = new Date(iso).toLocaleTimeString("es-CO", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: tz });
+  const d = new Date(iso);
+  const today = day(new Date());
+  const yesterday = day(new Date(Date.now() - 24 * 60 * 60 * 1000));
+  if (day(d) === today) return `Hoy ${time}`;
+  if (day(d) === yesterday) return `Ayer ${time}`;
+  const date = d.toLocaleDateString("es-CO", { day: "numeric", month: "short", timeZone: tz });
+  return `${date} ${time}`;
+}
+
+// "Hace 5 min", "Hace 3 h", "Hace 2 días".
+function fmtAgo(iso: string): string {
+  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (mins < 1) return "ahora mismo";
+  if (mins < 60) return `hace ${mins} min`;
+  const hours = Math.round(mins / 60);
+  if (hours < 48) return `hace ${hours} h`;
+  return `hace ${Math.round(hours / 24)} días`;
+}
+
 export default function UsuariosPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -119,7 +152,7 @@ export default function UsuariosPage() {
           Usuarios
         </span>
         <span className="text-sm" style={{ color: "var(--text-muted)" }}>
-          Roles, permisos y conexiones
+          Roles, permisos y actividad
         </span>
       </header>
 
@@ -307,6 +340,12 @@ function UserCard({
   showHistory: boolean;
 }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  // Reloj para marcar "En línea" (actividad en los últimos 5 minutos).
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(timer);
+  }, []);
   const [newPassword, setNewPassword] = useState("");
   const [history, setHistory] = useState<LoginRecord[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -365,6 +404,33 @@ function UserCard({
           <p className="text-xs" style={{ color: "var(--text-muted)" }}>
             {user.email}
           </p>
+          {user.last_activity ? (
+            <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs" style={{ color: "var(--text-secondary)" }}>
+              <span>
+                {now - new Date(user.last_activity.at).getTime() < 5 * 60 * 1000 && (
+                  <span className="mr-1 rounded px-1.5 py-0.5 text-[11px] font-medium" style={{ color: "var(--good)", border: "1px solid var(--good)" }}>
+                    En línea
+                  </span>
+                )}
+                <b style={{ color: "var(--text-primary)" }}>Última actividad:</b> {fmtLastActivity(user.last_activity.at)}{" "}
+                <span style={{ color: "var(--text-muted)" }}>({fmtAgo(user.last_activity.at)})</span>
+              </span>
+              <span style={{ color: "var(--text-muted)" }}>
+                {[user.last_activity.city, user.last_activity.region, user.last_activity.country].filter(Boolean).join(", ") || "Ciudad desconocida"}
+              </span>
+              <span style={{ color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>IP {user.last_activity.ip ?? "desconocida"}</span>
+              <span style={{ color: "var(--text-muted)" }}>{deviceLabel(user.last_activity.user_agent)}</span>
+              {!user.last_activity.exact && (
+                <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                  (ciudad, IP y dispositivo del último ingreso; se actualizan solos cuando vuelva a usar el panel)
+                </span>
+              )}
+            </p>
+          ) : (
+            <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+              <b>Última actividad:</b> sin registro
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {!user.is_protected && (
@@ -381,7 +447,7 @@ function UserCard({
             className="rounded-md px-3 py-1.5 text-xs font-medium"
             style={{ background: "var(--page)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
           >
-            {showHistory ? "Ocultar conexiones" : "Ver conexiones"}
+            {showHistory ? "Ocultar historial de actividad" : "Ver historial de actividad"}
           </button>
           {user.is_protected ? null : confirmingDelete ? (
             <button
@@ -445,7 +511,7 @@ function UserCard({
       {showHistory && (
         <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--gridline)" }}>
           <p className="mb-2 text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-            Historial de conexiones
+            Historial de actividad
           </p>
           {loadingHistory && <p className="text-xs" style={{ color: "var(--text-muted)" }}>Cargando...</p>}
           {!loadingHistory && history.length === 0 && (

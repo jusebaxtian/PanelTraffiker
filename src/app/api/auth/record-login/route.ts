@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { supabaseServerAuth } from "@/lib/supabaseServerAuth";
+import { requestInfo } from "@/lib/requestInfo";
 import { getCurrentUser } from "@/lib/auth";
 import { MAX_LOGINS_PER_USER } from "@/lib/loginHistory";
 import {
@@ -60,20 +61,32 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const city = request.headers.get("x-vercel-ip-city");
-  const region = request.headers.get("x-vercel-ip-country-region");
-  const country = request.headers.get("x-vercel-ip-country");
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  const info = requestInfo(request);
 
   await supabase.from("user_login_history").insert({
     user_id: user.id,
     event,
-    ip_address: ip,
-    city: city ? decodeURIComponent(city) : null,
-    region: region ? decodeURIComponent(region) : null,
-    country: country ?? null,
-    user_agent: request.headers.get("user-agent"),
+    ip_address: info.ip,
+    city: info.city,
+    region: info.region,
+    country: info.country,
+    user_agent: info.userAgent,
   });
+
+  // Un ingreso o una vuelta a la app también cuentan como última actividad.
+  if (event !== "timeout") {
+    await supabase
+      .from("user_profiles")
+      .update({
+        last_seen_at: new Date().toISOString(),
+        last_seen_ip: info.ip,
+        last_seen_city: info.city,
+        last_seen_region: info.region,
+        last_seen_country: info.country,
+        last_seen_ua: info.userAgent,
+      })
+      .eq("id", user.id);
+  }
 
   // Solo se conservan los últimos MAX_LOGINS_PER_USER ingresos por
   // usuario: lo que pase de ahí se borra.

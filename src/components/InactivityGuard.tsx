@@ -10,6 +10,7 @@ const ACTIVITY_EVENTS = ["mousemove", "mousedown", "keydown", "scroll", "wheel",
 // Una sola vez por carga completa de la página (recargar o reabrir la
 // pestaña), no en cada cambio de ruta dentro de la app.
 let resumeChecked = false;
+let lastStartPing = 0;
 
 function readStoredActivity(): number {
   try {
@@ -58,7 +59,8 @@ async function closeSession() {
 
 // Vigila la actividad del usuario y:
 //  - Admin: cierra la sesión tras 30 minutos sin actividad.
-//  - Todos: deja constancia en el historial de conexiones cuando alguien
+//  - Todos: avisa al servidor que siguen activos (última actividad que se
+//    ve en Usuarios) y deja constancia en el historial de conexiones cuando alguien
 //    vuelve a la app con la sesión ya abierta (recargó o reabrió la pestaña).
 export default function InactivityGuard() {
   const pathname = usePathname();
@@ -87,12 +89,12 @@ export default function InactivityGuard() {
           }).catch(() => {});
         }
 
-        if (json.data.role === "superadmin") return;
+        const isAdmin = json.data.role !== "superadmin";
 
         // Si la última actividad guardada ya está vencida (la pestaña quedó
         // abierta o el equipo estuvo dormido), se cierra de una vez.
         const stored = readStoredActivity();
-        if (stored && Date.now() - stored >= INACTIVITY_MS) {
+        if (isAdmin && stored && Date.now() - stored >= INACTIVITY_MS) {
           closeSession();
           return;
         }
@@ -101,8 +103,14 @@ export default function InactivityGuard() {
         let lastPing = Date.now();
         let closing = false;
 
+        // Al abrir o recargar la app también cuenta como actividad.
+        if (Date.now() - lastStartPing > ACTIVITY_PING_MS) {
+          lastStartPing = Date.now();
+          fetch("/api/auth/activity", { method: "POST" }).catch(() => {});
+        }
+
         const check = () => {
-          if (closing) return;
+          if (closing || !isAdmin) return;
           const last = readStoredActivity();
           if (last && Date.now() - last >= INACTIVITY_MS) {
             closing = true;
@@ -118,7 +126,7 @@ export default function InactivityGuard() {
             lastPing = now;
             fetch("/api/auth/activity", { method: "POST" })
               .then((res) => {
-                if (res.status === 401 && !closing) {
+                if (res.status === 401 && isAdmin && !closing) {
                   closing = true;
                   closeSession();
                 }
