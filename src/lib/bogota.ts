@@ -82,6 +82,15 @@ export function bogotaPresetToRange(preset: string): { since: string; until: str
   }
 }
 
+// Client-side: "ayer" (YYYY-MM-DD) en hora de Colombia, calculado en el
+// navegador para no esperar al servidor.
+export function bogotaYesterdayClient(): string {
+  const d = bogotaNowClient();
+  d.setDate(d.getDate() - 1);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 // Client-side: Date cuyos getters LOCALES (getFullYear, getMonth,
 // getDate, ...) devuelven los valores de la hora civil de Bogotá, sin
 // importar la zona horaria del dispositivo del usuario.

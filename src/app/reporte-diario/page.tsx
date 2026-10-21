@@ -9,6 +9,7 @@ import CrmTagPicker from "@/components/CrmTagPicker";
 import { formatGhlTags } from "@/lib/ghlTags";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import ScrollDropdown from "@/components/ScrollDropdown";
+import { bogotaYesterdayClient } from "@/lib/bogota";
 
 interface DistribucionOffice {
   id: string;
@@ -90,15 +91,23 @@ export default function ReporteDiarioPage() {
   }
 
   useEffect(() => {
+    // El reporte de "ayer" se pide de inmediato, a la vez que la lista de
+    // fechas, en vez de esperar a que la lista llegue para recién entonces
+    // pedir el reporte (antes eran dos esperas seguidas).
+    const clientYesterday = bogotaYesterdayClient();
+    Promise.resolve().then(() => {
+      setYesterday(clientYesterday);
+      selectDate(clientYesterday);
+    });
+
     fetch("/api/reporte-diario/dates")
       .then((res) => res.json())
       .then((json) => {
         if (!json.error) {
-          setDates(json.data.dates);
-          setYesterday(json.data.yesterday);
-          selectDate(json.data.yesterday);
+          setDates(json.data.dates.includes(clientYesterday) ? json.data.dates : [clientYesterday, ...json.data.dates]);
         }
-      });
+      })
+      .catch(() => {});
     fetch("/api/offices")
       .then((res) => res.json())
       .then((json) => {
