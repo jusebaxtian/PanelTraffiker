@@ -23,13 +23,6 @@ export interface ReportImageTotals {
 const money = (n: number) => "$" + Math.round(n).toLocaleString("es-CO");
 const num = (n: number) => Math.round(n).toLocaleString("es-CO");
 
-export function cprColor(cpr: number) {
-  if (cpr <= 0) return "#6b7280";
-  if (cpr <= 6500) return "#15803d";
-  if (cpr <= 8000) return "#c2410c";
-  return "#b91c1c";
-}
-
 const COLS: { title: string; width: number; align: "left" | "center" | "right" }[] = [
   { title: "Admin", width: 110, align: "left" },
   { title: "Pautas", width: 390, align: "left" },
@@ -112,13 +105,13 @@ export function drawReportImage(dateLabel: string, rows: ReportImageRow[], total
     const cpr = r.resultados_meta > 0 ? r.inversion / r.resultados_meta : 0;
     drawRow(
       [r.admin, `☑ ${r.label}`, money(r.diario), num(r.resultados_meta), num(r.leads_crm), cpr > 0 ? money(cpr) : "-", money(r.inversion)],
-      { colors: [undefined, undefined, undefined, undefined, undefined, cprColor(cpr), undefined] }
+      {}
     );
   }
 
   drawRow(
     ["", "", money(totals.diario), num(totals.meta), num(totals.crm), totals.cpr > 0 ? money(totals.cpr) : "-", money(totals.inv)],
-    { bold: true, colors: [undefined, undefined, undefined, undefined, undefined, cprColor(totals.cpr), undefined] }
+    { bold: true }
   );
 
   return new Promise((resolve, reject) =>

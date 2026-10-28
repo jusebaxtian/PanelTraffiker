@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { drawReportImage, cprColor } from "@/lib/reportImage";
+import { drawReportImage } from "@/lib/reportImage";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { bogotaYesterdayClient } from "@/lib/bogota";
 import ScrollDropdown from "@/components/ScrollDropdown";
@@ -21,7 +21,6 @@ interface ReportRow {
   inversion: number;
 }
 
-const CPR_MAX = 6500;
 
 const money = (n: number) => "$" + Math.round(n).toLocaleString("es-CO");
 const num = (n: number) => Math.round(n).toLocaleString("es-CO");
@@ -255,7 +254,7 @@ export default function ReporteImagenPage() {
                       <td style={cell("right")}>{money(r.diario)}</td>
                       <td style={cell("center")}>{num(r.resultados_meta)}</td>
                       <td style={cell("center")}>{num(r.leads_crm)}</td>
-                      <td style={{ ...cell("center"), color: cprColor(cpr), fontWeight: 600 }}>{cpr > 0 ? money(cpr) : "-"}</td>
+                      <td style={cell("center")}>{cpr > 0 ? money(cpr) : "-"}</td>
                       <td style={cell("right")}>{money(r.inversion)}</td>
                     </tr>
                   );
@@ -266,7 +265,7 @@ export default function ReporteImagenPage() {
                   <td style={cell("right")}>{money(totals.diario)}</td>
                   <td style={cell("center")}>{num(totals.meta)}</td>
                   <td style={cell("center")}>{num(totals.crm)}</td>
-                  <td style={{ ...cell("center"), color: cprColor(totals.cpr) }}>{totals.cpr > 0 ? money(totals.cpr) : "-"}</td>
+                  <td style={cell("center")}>{totals.cpr > 0 ? money(totals.cpr) : "-"}</td>
                   <td style={cell("right")}>{money(totals.inv)}</td>
                 </tr>
               </tbody>
@@ -275,7 +274,7 @@ export default function ReporteImagenPage() {
           </div>
         </div>
         <p className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
-          Datos del Reporte Diario de esa fecha. Costo X Resultado = Inversión ÷ Resultados Meta; el total usa la inversión total ÷ resultados totales. Verde hasta {money(CPR_MAX)}, naranja hasta $8.000 y rojo por encima.
+          Datos del Reporte Diario de esa fecha. Costo X Resultado = Inversión ÷ Resultados Meta; el total usa la inversión total ÷ resultados totales.
         </p>
 
         {/* ---------- Ajustes de cada fila (solo SuperAdmin) ---------- */}
