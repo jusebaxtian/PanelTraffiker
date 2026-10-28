@@ -5,6 +5,7 @@ export const MODULES = [
   { key: "dashboard", label: "Dashboard", href: "/" },
   { key: "graficos", label: "Gráficos", href: "/graficos" },
   { key: "reporte-diario", label: "Reporte Diario", href: "/reporte-diario" },
+  { key: "reporte-imagen", label: "Reporte Imagen", href: "/reporte-imagen" },
   { key: "distribucion", label: "Distribución", href: "/distribucion" },
   { key: "proyeccion", label: "Proyección", href: "/proyeccion" },
   { key: "status-api", label: "Status API", href: "/status-api" },
@@ -20,6 +21,7 @@ export type ModuleKey = (typeof MODULES)[number]["key"];
 const NAV_ORDER: ModuleKey[] = [
   "dashboard",
   "reporte-diario",
+  "reporte-imagen",
   "distribucion",
   "proyeccion",
   "graficos",

@@ -8,6 +8,7 @@ import { supabaseBrowser } from "@/lib/supabaseBrowser";
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/", key: "dashboard" },
   { label: "Reporte Diario", href: "/reporte-diario", key: "reporte-diario" },
+  { label: "Reporte Imagen", href: "/reporte-imagen", key: "reporte-imagen" },
   { label: "Distribución", href: "/distribucion", key: "distribucion" },
   { label: "Proyección", href: "/proyeccion", key: "proyeccion" },
   { label: "Gráficos", href: "/graficos", key: "graficos" },
