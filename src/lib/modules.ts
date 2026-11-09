@@ -11,6 +11,7 @@ export const MODULES = [
   { key: "status-api", label: "Status API", href: "/status-api" },
   { key: "status-ads", label: "Status Ads", href: "/status-ads" },
   { key: "mis-anuncios", label: "Mis Anuncios", href: "/mis-anuncios" },
+  { key: "analizar-campana", label: "Analizar Campaña", href: "/analizar-campana" },
   { key: "chatgpt-ads", label: "ChatGPT Ads", href: "/chatgpt-ads" },
   { key: "como-ven", label: "Mapa Geográfica", href: "/como-ven-mis-anuncios" },
 ] as const;
@@ -29,6 +30,7 @@ const NAV_ORDER: ModuleKey[] = [
   "status-api",
   "status-ads",
   "mis-anuncios",
+  "analizar-campana",
   "chatgpt-ads",
   "como-ven",
 ];

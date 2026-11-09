@@ -1,20 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  CPR_IDEAL,
-  CPR_MAX,
-  CTA_LABEL,
-  FATIGUE_LABEL,
-  HEALTH_LABEL,
-  TREND_LABEL,
-  VERDICT_META,
-  type AdDay,
-  type AdLifetime,
-  type AdPeriodStats,
-  type Diagnosis,
-  type Verdict,
-} from "@/lib/adDiagnosis";
+import { CPR_IDEAL, CPR_MAX, type AdDay, type AdLifetime, type AdPeriodStats, type Diagnosis } from "@/lib/adDiagnosis";
 
 interface AdReport {
   ad_id: string;
@@ -56,7 +43,6 @@ const DATE_PRESETS = [
 
 const money = (n: number) => "$" + Math.round(n).toLocaleString("es-CO");
 const dec = (n: number, d = 2) => n.toLocaleString("es-CO", { minimumFractionDigits: d, maximumFractionDigits: d });
-const signed = (n: number) => `${n > 0 ? "+" : ""}${Math.round(n)}%`;
 
 function cprColor(cpr: number, results: number): string {
   if (results === 0 || cpr === 0) return "var(--text-muted)";
@@ -64,8 +50,6 @@ function cprColor(cpr: number, results: number): string {
   if (cpr <= CPR_MAX) return "var(--series-3)";
   return "var(--critical)";
 }
-
-const FORMAT_LABEL: Record<string, string> = { VIDEO: "Video", IMAGEN: "Imagen", OTRO: "Otro" };
 
 export default function MisAnunciosPage() {
   const [datePreset, setDatePreset] = useState<string>("last_7d");
@@ -80,15 +64,11 @@ export default function MisAnunciosPage() {
 
   const [ads, setAds] = useState<AdReport[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
-  const [range, setRange] = useState<{ since: string; until: string } | null>(null);
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(0);
 
   const [onlyActive, setOnlyActive] = useState(true);
-  const [verdictFilter, setVerdictFilter] = useState<Verdict | "todos">("todos");
-  const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<"gasto" | "cpr" | "puntaje" | "frecuencia">("gasto");
   const [preview, setPreview] = useState<AdReport | null>(null);
 
   useEffect(() => {
@@ -127,7 +107,6 @@ export default function MisAnunciosPage() {
         else {
           setAds(json.data.ads);
           setErrors(json.data.errors);
-          setRange(json.data.range);
           setError(null);
         }
       })
@@ -137,18 +116,6 @@ export default function MisAnunciosPage() {
   }, [rangeKey, campaignKey]);
 
   const scoped = useMemo(() => (onlyActive ? ads.filter((a) => a.status === "ACTIVE") : ads), [ads, onlyActive]);
-
-  const counts = useMemo(() => {
-    const c: Record<Verdict, number> = { escalar: 0, mantener: 0, vigilar: 0, renovar: 0, apagar: 0, prueba: 0 };
-    for (const a of scoped) c[a.diagnosis.verdict]++;
-    return c;
-  }, [scoped]);
-
-  const totals = useMemo(() => {
-    const spend = scoped.reduce((s, a) => s + a.cur.spend, 0);
-    const results = scoped.reduce((s, a) => s + a.cur.results, 0);
-    return { spend, results, cpr: results > 0 ? spend / results : 0 };
-  }, [scoped]);
 
   const best = useMemo(
     () =>
@@ -171,26 +138,6 @@ export default function MisAnunciosPage() {
         .slice(0, 5),
     [scoped]
   );
-
-  const byVerdict = (v: Verdict) => scoped.filter((a) => a.diagnosis.verdict === v).sort((a, b) => b.cur.spend - a.cur.spend);
-
-  const wasted = useMemo(() => byVerdict("apagar").reduce((s, a) => s + a.cur.spend, 0), [scoped]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const list = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const filtered = scoped.filter(
-      (a) =>
-        (verdictFilter === "todos" || a.diagnosis.verdict === verdictFilter) &&
-        (!q || a.ad_name.toLowerCase().includes(q) || a.campaign_name.toLowerCase().includes(q))
-    );
-    const key = {
-      gasto: (a: AdReport) => -a.cur.spend,
-      cpr: (a: AdReport) => (a.cur.results === 0 ? Infinity : a.diagnosis.cpr),
-      puntaje: (a: AdReport) => -a.diagnosis.score,
-      frecuencia: (a: AdReport) => -a.cur.frequency,
-    }[sort];
-    return [...filtered].sort((a, b) => key(a) - key(b));
-  }, [scoped, verdictFilter, search, sort]);
 
   const filteredCampaigns = useMemo(() => {
     const q = campaignSearch.trim().toLowerCase();
@@ -217,7 +164,7 @@ export default function MisAnunciosPage() {
           Mis Anuncios
         </span>
         <span className="hidden text-sm sm:block" style={{ color: "var(--text-muted)" }}>
-          Qué anuncios funcionan, cuáles se cansaron y qué hacer con cada uno
+          Tus mejores y peores anuncios del período
         </span>
       </header>
 
@@ -362,58 +309,21 @@ export default function MisAnunciosPage() {
           </p>
         ) : (
           <div className={loading ? "opacity-60 transition-opacity" : "transition-opacity"}>
-            {/* ---------- Resumen ---------- */}
-            <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Tile label="Anuncios analizados" value={String(scoped.length)} />
-              <Tile label="Gasto" value={money(totals.spend)} />
-              <Tile label="Costo por resultado" value={totals.cpr > 0 ? money(totals.cpr) : "-"} color={cprColor(totals.cpr, totals.results)} />
-              <Tile label="Gasto en anuncios a apagar" value={money(wasted)} color={wasted > 0 ? "var(--critical)" : undefined} />
-            </div>
-
-            <div className="mb-6 flex flex-wrap gap-2">
-              {(["escalar", "mantener", "vigilar", "renovar", "apagar", "prueba"] as Verdict[]).map((v) => (
-                <button
-                  key={v}
-                  onClick={() => {
-                    setVerdictFilter(verdictFilter === v ? "todos" : v);
-                    document.getElementById("todos-los-anuncios")?.scrollIntoView({ behavior: "smooth" });
-                  }}
-                  className="rounded-full px-3 py-1 text-xs font-semibold"
-                  style={{
-                    background: verdictFilter === v ? VERDICT_META[v].color : "var(--surface)",
-                    color: verdictFilter === v ? "#ffffff" : VERDICT_META[v].color,
-                    border: `1px solid ${VERDICT_META[v].color}`,
-                  }}
-                >
-                  {VERDICT_META[v].short} · {counts[v]}
-                </button>
-              ))}
-            </div>
-
             {scoped.length === 0 && (
               <p className="rounded-xl p-6 text-center text-sm" style={{ ...cardStyle, color: "var(--text-muted)" }}>
                 No hay anuncios con actividad en este período{onlyActive ? " (prueba desmarcar “Solo anuncios activos”)" : ""}.
               </p>
             )}
 
-            {/* ---------- Qué hacer hoy ---------- */}
-            {(byVerdict("apagar").length > 0 || byVerdict("renovar").length > 0 || byVerdict("escalar").length > 0) && (
-              <Section title="Qué hacer hoy" subtitle="Las acciones más importantes, en orden de prioridad.">
-                <ActionGroup title="Apagar" hint={`Gastan sin rendir. Liberas ${money(wasted)} para los mejores.`} ads={byVerdict("apagar")} onPreview={setPreview} totalSpend={totals.spend} />
-                <ActionGroup title="Cambiar el creativo (fatigados)" hint="Funcionaron, pero la gente ya se cansó de verlos." ads={byVerdict("renovar")} onPreview={setPreview} totalSpend={totals.spend} />
-                <ActionGroup title="Escalar (muy buenos)" hint="Dales más presupuesto de a poco y crea variantes." ads={byVerdict("escalar")} onPreview={setPreview} totalSpend={totals.spend} />
-              </Section>
-            )}
-
             {/* ---------- Tops ---------- */}
             {(best.length > 0 || worst.length > 0) && (
-              <div className="mt-6 grid gap-5 lg:grid-cols-2">
-                <Section title="Top 5 mejores anuncios" subtitle="Menor costo por resultado con datos suficientes." compact>
+              <div className="grid gap-5 lg:grid-cols-2">
+                <Section title="Top 5 mejores anuncios" subtitle="Menor costo por resultado con datos suficientes.">
                   {best.map((a, i) => (
                     <RankRow key={a.ad_id} rank={i + 1} ad={a} onPreview={setPreview} />
                   ))}
                 </Section>
-                <Section title="Top 5 peores anuncios" subtitle="Los que más cuestan o gastan sin resultados." compact>
+                <Section title="Top 5 peores anuncios" subtitle="Los que más cuestan o gastan sin resultados.">
                   {worst.length === 0 ? (
                     <p className="text-sm" style={{ color: "var(--text-muted)" }}>
                       Ningún anuncio supera tu máximo de {money(CPR_MAX)} con gasto relevante. 👏
@@ -424,57 +334,6 @@ export default function MisAnunciosPage() {
                 </Section>
               </div>
             )}
-
-            {/* ---------- Todos ---------- */}
-            <div id="todos-los-anuncios" className="mt-6 scroll-mt-20">
-              <Section title="Todos los anuncios" subtitle="Toca un anuncio para ver su detalle, su evolución y la recomendación completa.">
-                <div className="mb-3 flex flex-wrap items-center gap-2">
-                  <input
-                    type="text"
-                    placeholder="Buscar anuncio o campaña…"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full max-w-xs rounded-lg px-3 py-1.5 text-sm outline-none"
-                    style={{ background: "var(--surface-raised)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
-                  />
-                  <select
-                    value={sort}
-                    onChange={(e) => setSort(e.target.value as typeof sort)}
-                    className="rounded-lg px-3 py-1.5 text-sm"
-                    style={{ background: "var(--surface-raised)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
-                  >
-                    <option value="gasto">Ordenar: mayor gasto</option>
-                    <option value="cpr">Ordenar: menor costo por resultado</option>
-                    <option value="puntaje">Ordenar: mejor puntaje</option>
-                    <option value="frecuencia">Ordenar: mayor frecuencia</option>
-                  </select>
-                  {verdictFilter !== "todos" && (
-                    <button onClick={() => setVerdictFilter("todos")} className="text-xs" style={{ color: "var(--brand)" }}>
-                      Quitar filtro “{VERDICT_META[verdictFilter].short}” ✕
-                    </button>
-                  )}
-                </div>
-                <div className="space-y-3">
-                  {list.map((a) => (
-                    <AdCard key={a.ad_id} ad={a} onPreview={setPreview} expandable spendShare={totals.spend > 0 ? a.cur.spend / totals.spend : undefined} />
-                  ))}
-                  {list.length === 0 && (
-                    <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                      Sin resultados con ese filtro.
-                    </p>
-                  )}
-                </div>
-              </Section>
-            </div>
-
-            <div className="mt-6 rounded-xl p-4 text-xs leading-relaxed" style={{ ...cardStyle, color: "var(--text-muted)" }}>
-              <p className="mb-1 font-semibold" style={{ color: "var(--text-secondary)" }}>
-                Cómo leer este análisis
-              </p>
-              <p>
-                <b>Costo por resultado</b>: gasto ÷ conversaciones iniciadas. Tu ideal es {money(CPR_IDEAL)} y tu máximo {money(CPR_MAX)}. <b>Frecuencia</b>: cuántas veces, en promedio, vio el anuncio cada persona alcanzada; por encima de 2 empieza el cansancio. <b>CTR</b>: de cada 100 veces que se muestra, cuántas personas hacen clic. <b>CPM</b>: lo que cuesta mostrar el anuncio 1.000 veces. <b>Fatiga</b>: cuando el anuncio ya se vio demasiado y rinde peor: baja el CTR, sube el CPM o sube el costo por resultado. <b>Quemado</b>: fatiga extrema, ya no tiene recorrido. Con menos de {money(150000)} de gasto o menos de 5 resultados el anuncio se marca “en prueba” porque aún no se puede juzgar. Período analizado: {range ? `${range.since} al ${range.until}` : "-"}; la tendencia compara la primera con la segunda mitad del período y, si hay datos, con el período anterior equivalente.
-              </p>
-            </div>
           </div>
         )}
       </main>
@@ -486,22 +345,9 @@ export default function MisAnunciosPage() {
 
 /* ================= componentes ================= */
 
-function Tile({ label, value, color }: { label: string; value: string; color?: string }) {
+function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl p-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-      <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-        {label}
-      </p>
-      <p className="mt-1 text-xl font-semibold tabular-nums" style={{ color: color ?? "var(--text-primary)" }}>
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function Section({ title, subtitle, children, compact }: { title: string; subtitle?: string; children: React.ReactNode; compact?: boolean }) {
-  return (
-    <section className={`rounded-xl p-4 ${compact ? "" : "mt-6 first:mt-0"}`} style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+    <section className="rounded-xl p-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
       <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
         {title}
       </h2>
@@ -512,30 +358,6 @@ function Section({ title, subtitle, children, compact }: { title: string; subtit
       )}
       {children}
     </section>
-  );
-}
-
-function ActionGroup({ title, hint, ads, onPreview, totalSpend }: { title: string; hint: string; ads: AdReport[]; onPreview: (a: AdReport) => void; totalSpend: number }) {
-  if (ads.length === 0) return null;
-  return (
-    <div className="mb-5 last:mb-0">
-      <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-        {title} <span style={{ color: "var(--text-muted)" }}>({ads.length})</span>
-      </p>
-      <p className="mb-2 text-xs" style={{ color: "var(--text-muted)" }}>
-        {hint}
-      </p>
-      <div className="space-y-3">
-        {ads.slice(0, 6).map((a) => (
-          <AdCard key={a.ad_id} ad={a} onPreview={onPreview} spendShare={totalSpend > 0 ? a.cur.spend / totalSpend : undefined} />
-        ))}
-        {ads.length > 6 && (
-          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-            y {ads.length - 6} más en “Todos los anuncios”.
-          </p>
-        )}
-      </div>
-    </div>
   );
 }
 
@@ -588,211 +410,6 @@ function Thumb({ ad, size, onClick }: { ad: AdReport; size: number; onClick?: ()
         </span>
       )}
     </button>
-  );
-}
-
-function Badge({ text, color }: { text: string; color: string }) {
-  return (
-    <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ color, border: `1px solid ${color}` }}>
-      {text}
-    </span>
-  );
-}
-
-function AdCard({ ad, onPreview, expandable, spendShare }: { ad: AdReport; onPreview: (a: AdReport) => void; expandable?: boolean; spendShare?: number }) {
-  const [open, setOpen] = useState(!expandable);
-  const d = ad.diagnosis;
-  const v = VERDICT_META[d.verdict];
-  const fatigueColor = d.fatigue === "ninguna" ? "var(--good)" : d.fatigue === "inicial" ? "var(--series-3)" : "var(--critical)";
-  const trendColor = d.trend === "mejorando" ? "var(--good)" : d.trend === "empeorando" ? "var(--critical)" : "var(--text-muted)";
-
-  return (
-    <div className="rounded-lg p-3" style={{ background: "var(--surface-raised)", borderLeft: `3px solid ${v.color}` }}>
-      <div className="flex gap-3">
-        <Thumb ad={ad} size={64} onClick={() => onPreview(ad)} />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-              {ad.ad_name}
-            </p>
-            <Badge text={v.label} color={v.color} />
-            {ad.status !== "ACTIVE" && <Badge text="Pausado" color="var(--text-muted)" />}
-          </div>
-          <p className="truncate text-xs" style={{ color: "var(--text-muted)" }}>
-            {ad.campaign_name} · {ad.account_name} · {FORMAT_LABEL[ad.format]}
-          </p>
-          <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs tabular-nums" style={{ color: "var(--text-secondary)" }}>
-            <span>
-              Gasto <b style={{ color: "var(--text-primary)" }}>{money(ad.cur.spend)}</b>
-            </span>
-            <span>
-              Resultados <b style={{ color: "var(--text-primary)" }}>{ad.cur.results}</b>
-            </span>
-            <span>
-              Costo/res.{" "}
-              <b style={{ color: cprColor(d.cpr, ad.cur.results) }}>{ad.cur.results > 0 ? money(d.cpr) : "-"}</b>
-            </span>
-            <span>
-              Frecuencia <b style={{ color: d.fatigue === "ninguna" ? "var(--text-primary)" : fatigueColor }}>{dec(ad.cur.frequency)}</b>
-            </span>
-            <span>
-              CTR <b style={{ color: "var(--text-primary)" }}>{dec(ad.cur.ctr)}%</b>
-            </span>
-          </div>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            <Badge text={`Fatiga: ${FATIGUE_LABEL[d.fatigue]}`} color={fatigueColor} />
-            <Badge text={`Tendencia: ${TREND_LABEL[d.trend]}`} color={trendColor} />
-            <Badge text={`Rendimiento: ${HEALTH_LABEL[d.health]}`} color={cprColor(d.cpr, ad.cur.results)} />
-          </div>
-        </div>
-        {expandable && (
-          <button onClick={() => setOpen((o) => !o)} className="h-fit shrink-0 text-xs" style={{ color: "var(--brand)" }}>
-            {open ? "Cerrar ▲" : "Detalle ▼"}
-          </button>
-        )}
-      </div>
-
-      {open && (
-        <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--gridline)" }}>
-          <p className="mb-1 text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-            Por qué
-          </p>
-          <ul className="mb-3 list-disc space-y-1 pl-5 text-sm" style={{ color: "var(--text-primary)" }}>
-            {d.reasons.map((r) => (
-              <li key={r}>{r}</li>
-            ))}
-            {spendShare !== undefined && spendShare >= 0.15 && ad.cur.results > 0 && d.cpr > CPR_MAX && (
-              <li>
-                Concentra el {Math.round(spendShare * 100)}% de todo tu gasto con un costo sobre tu máximo: es la prioridad para reemplazar o mejorar.
-              </li>
-            )}
-          </ul>
-          <p className="mb-1 text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-            Qué hacer
-          </p>
-          <p className="mb-3 text-sm" style={{ color: "var(--text-primary)" }}>
-            {d.recommendation}
-          </p>
-
-          {expandable && (
-            <>
-              <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <Mini label="Impresiones" value={ad.cur.impressions.toLocaleString("es-CO")} />
-                <Mini label="Personas alcanzadas" value={ad.cur.reach.toLocaleString("es-CO")} />
-                <Mini label="CPM" value={money(ad.cur.cpm)} delta={d.cpmDeltaPct} invert />
-                <Mini label="CTR enlace" value={`${dec(ad.cur.ctr)}%`} delta={d.ctrDeltaPct} />
-                <Mini label="Frecuencia (vida)" value={ad.lifetime ? dec(ad.lifetime.frequency) : "-"} />
-                <Mini label="Gasto total (vida)" value={ad.lifetime ? money(ad.lifetime.spend) : "-"} />
-                <Mini label="Costo/res. período previo" value={ad.prev && ad.prev.results > 0 ? money(ad.prev.spend / ad.prev.results) : "-"} />
-                <Mini label="Creado" value={ad.created_time ? ad.created_time.slice(0, 10) : "-"} />
-              </div>
-              <DailyChart daily={ad.daily} />
-              {(ad.title || ad.body) && (
-                <div className="mt-3 rounded-md p-2 text-xs" style={{ background: "var(--surface)", color: "var(--text-secondary)" }}>
-                  {ad.title && (
-                    <p>
-                      <b style={{ color: "var(--text-primary)" }}>Titular:</b> {ad.title}
-                    </p>
-                  )}
-                  {ad.body && (
-                    <p className="mt-1">
-                      <b style={{ color: "var(--text-primary)" }}>Texto:</b> {ad.body}
-                    </p>
-                  )}
-                  {ad.cta && (
-                    <p className="mt-1">
-                      <b style={{ color: "var(--text-primary)" }}>Botón:</b> {CTA_LABEL[ad.cta] ?? ad.cta}
-                    </p>
-                  )}
-                </div>
-              )}
-            </>
-          )}
-
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button onClick={() => onPreview(ad)} className="rounded-md px-3 py-1.5 text-xs font-semibold" style={{ background: "var(--brand)", color: "#ffffff" }}>
-              Ver el anuncio
-            </button>
-            {ad.preview_link && (
-              <a
-                href={ad.preview_link}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-md px-3 py-1.5 text-xs font-semibold"
-                style={{ background: "var(--surface)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
-              >
-                Abrir enlace ↗
-              </a>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Mini({ label, value, delta, invert }: { label: string; value: string; delta?: number | null; invert?: boolean }) {
-  const good = delta === null || delta === undefined ? null : invert ? delta < 0 : delta > 0;
-  return (
-    <div className="rounded-md p-2" style={{ background: "var(--surface)" }}>
-      <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-        {label}
-      </p>
-      <p className="text-sm font-semibold tabular-nums" style={{ color: "var(--text-primary)" }}>
-        {value}
-        {delta !== null && delta !== undefined && Math.abs(delta) >= 5 && (
-          <span className="ml-1 text-[11px] font-medium" style={{ color: good ? "var(--good)" : "var(--critical)" }}>
-            {signed(delta)}
-          </span>
-        )}
-      </p>
-    </div>
-  );
-}
-
-function DailyChart({ daily }: { daily: AdDay[] }) {
-  const days = daily.filter((d) => d.spend > 0);
-  if (days.length < 2) {
-    return (
-      <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-        Muy pocos días con datos para mostrar la evolución.
-      </p>
-    );
-  }
-  const W = 560;
-  const H = 110;
-  const pad = 22;
-  const maxSpend = Math.max(...days.map((d) => d.spend));
-  const cprs = days.map((d) => (d.results > 0 ? d.spend / d.results : null));
-  const maxCpr = Math.max(CPR_MAX * 1.3, ...cprs.filter((c): c is number => c !== null));
-  const x = (i: number) => pad + (i * (W - pad * 2)) / Math.max(1, days.length - 1);
-  const bw = Math.max(4, (W - pad * 2) / days.length - 6);
-  const pts = cprs.map((c, i) => (c === null ? null : `${x(i)},${H - 18 - (c / maxCpr) * (H - 34)}`));
-  const line = pts.filter(Boolean).join(" ");
-  const maxLineY = H - 18 - (CPR_MAX / maxCpr) * (H - 34);
-  return (
-    <div>
-      <p className="mb-1 text-xs" style={{ color: "var(--text-muted)" }}>
-        Día a día: barras = gasto, línea = costo por resultado (la línea punteada es tu máximo de {money(CPR_MAX)}).
-      </p>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Evolución diaria del anuncio">
-        {days.map((d, i) => (
-          <g key={d.date}>
-            <rect x={x(i) - bw / 2} y={H - 18 - (d.spend / maxSpend) * (H - 34)} width={bw} height={(d.spend / maxSpend) * (H - 34)} fill="var(--series-4)" opacity={0.35} />
-            <text x={x(i)} y={H - 4} textAnchor="middle" fontSize="9" fill="var(--text-muted)">
-              {d.date.slice(5)}
-            </text>
-          </g>
-        ))}
-        <line x1={pad} x2={W - pad} y1={maxLineY} y2={maxLineY} stroke="var(--critical)" strokeDasharray="4 4" opacity={0.6} />
-        {line && <polyline points={line} fill="none" stroke="var(--brand)" strokeWidth={2} />}
-        {pts.map((p, i) => {
-          if (!p) return null;
-          const [px, py] = p.split(",").map(Number);
-          return <circle key={i} cx={px} cy={py} r={2.5} fill="var(--brand)" />;
-        })}
-      </svg>
-    </div>
   );
 }
 
