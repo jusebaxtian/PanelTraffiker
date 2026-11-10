@@ -59,6 +59,7 @@ interface RawInsight {
   frequency?: string;
   inline_link_clicks?: string;
   actions?: ActionValue[];
+  video_thruplay_watched_actions?: ActionValue[];
   date_start?: string;
 }
 
@@ -433,7 +434,7 @@ export async function fetchCampaignAnalysis(options: {
     ),
     ins(`${M},frequency,cpm,inline_link_click_ctr`),
     soft(ins(`adset_id,${M}`, { level: "adset" })),
-    soft(ins(`ad_id,ad_name,${M},frequency,quality_ranking,engagement_rate_ranking,conversion_rate_ranking`, { level: "ad" })),
+    soft(ins(`ad_id,ad_name,${M},frequency,video_thruplay_watched_actions,quality_ranking,engagement_rate_ranking,conversion_rate_ranking`, { level: "ad" })),
     soft(ins(M, { breakdowns: "publisher_platform,platform_position" })),
     soft(ins(M, { breakdowns: "country,region" })),
     soft(ins(M, { breakdowns: "age,gender" })),
@@ -474,6 +475,8 @@ export async function fetchCampaignAnalysis(options: {
         message: welcomeFrom(cr?.object_story_spec),
         preview_link: e?.preview_shareable_link ?? null,
         frequency: num(r.frequency),
+        video3s: num(r.actions?.find((x) => x.action_type === "video_view")?.value),
+        thruplays: (r.video_thruplay_watched_actions ?? []).reduce((t, x) => t + num(x.value), 0),
         quality: RANK_LABEL[String(r.quality_ranking)] ?? null,
         engagement: RANK_LABEL[String(r.engagement_rate_ranking)] ?? null,
         conversion: RANK_LABEL[String(r.conversion_rate_ranking)] ?? null,

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { CPR_IDEAL, CPR_MAX } from "@/lib/adDiagnosis";
-import { DIMENSION_LABEL, type AdRow, type CampaignAnalysis, type Finding, type Segment } from "@/lib/analizarCampanaTypes";
+import { adRates, adTips, adsetTips, freqBand, segmentTip, summaryTips, type AdMetricKey, type Tip } from "@/lib/analizarTips";
+import { AD_BANDS, bandOf, DIMENSION_LABEL, type AdRow, type Band, type CampaignAnalysis, type Finding, type Segment } from "@/lib/analizarCampanaTypes";
 
 interface CampaignOption {
   account_id: string;
@@ -263,36 +264,36 @@ export default function AnalizarCampanaPage() {
               {tab === "anuncios" && <AdsTab data={data} />}
               {tab === "copys" && (
                 <>
-                  <SegmentTable title="Textos (copy)" hint="Cada texto principal que usó la campaña." rows={data.segments.copy} totals={data.totals} wrap />
-                  <SegmentTable title="Titulares" rows={data.segments.titulo} totals={data.totals} />
+                  <SegmentTable dimension="copy" title="Textos (copy)" hint="Cada texto principal que usó la campaña." rows={data.segments.copy} totals={data.totals} wrap />
+                  <SegmentTable dimension="titulo" title="Titulares" rows={data.segments.titulo} totals={data.totals} />
                   {data.segments.mensaje.length > 0 && (
-                    <SegmentTable title="Mensaje que llega a WhatsApp" hint="El texto prellenado con el que la persona inicia la conversación." rows={data.segments.mensaje} totals={data.totals} wrap />
+                    <SegmentTable dimension="mensaje" title="Mensaje que llega a WhatsApp" hint="El texto prellenado con el que la persona inicia la conversación." rows={data.segments.mensaje} totals={data.totals} wrap />
                   )}
-                  <SegmentTable title="Formato" rows={data.segments.formato} totals={data.totals} />
+                  <SegmentTable dimension="formato" title="Formato" rows={data.segments.formato} totals={data.totals} />
                 </>
               )}
               {tab === "ubicaciones" && (
                 <>
-                  <SegmentTable title="Plataforma" rows={data.segments.plataforma} totals={data.totals} />
-                  <SegmentTable title="Ubicación" rows={data.segments.ubicacion} totals={data.totals} />
+                  <SegmentTable dimension="plataforma" title="Plataforma" rows={data.segments.plataforma} totals={data.totals} />
+                  <SegmentTable dimension="ubicacion" title="Ubicación" rows={data.segments.ubicacion} totals={data.totals} />
                 </>
               )}
               {tab === "publico" && <AudienceTab data={data} />}
               {tab === "departamentos" && (
                 <>
-                  <SegmentTable title="País" rows={data.segments.pais} totals={data.totals} />
-                  <SegmentTable title="Departamento / estado" rows={data.segments.region} totals={data.totals} limit={25} />
+                  <SegmentTable dimension="pais" title="País" rows={data.segments.pais} totals={data.totals} />
+                  <SegmentTable dimension="region" title="Departamento / estado" rows={data.segments.region} totals={data.totals} limit={25} />
                 </>
               )}
               {tab === "edad" && (
                 <>
-                  <SegmentTable title="Género" rows={data.segments.genero} totals={data.totals} />
-                  <SegmentTable title="Edad" rows={[...data.segments.edad].sort((a, b) => a.key.localeCompare(b.key))} totals={data.totals} />
-                  <SegmentTable title="Edad y género" rows={data.segments.edad_genero} totals={data.totals} />
+                  <SegmentTable dimension="genero" title="Género" rows={data.segments.genero} totals={data.totals} />
+                  <SegmentTable dimension="edad" title="Edad" rows={[...data.segments.edad].sort((a, b) => a.key.localeCompare(b.key))} totals={data.totals} />
+                  <SegmentTable dimension="edad_genero" title="Edad y género" rows={data.segments.edad_genero} totals={data.totals} />
                 </>
               )}
               {tab === "horas" && <HoursTab rows={data.segments.hora} totals={data.totals} />}
-              {tab === "dispositivos" && <SegmentTable title="Dispositivo" rows={data.segments.dispositivo} totals={data.totals} />}
+              {tab === "dispositivos" && <SegmentTable dimension="dispositivo" title="Dispositivo" rows={data.segments.dispositivo} totals={data.totals} />}
               {tab === "dias" && <DaysTab data={data} />}
             </div>
 
@@ -319,6 +320,7 @@ function Summary({ data }: { data: CampaignAnalysis }) {
   const c = data.campaign;
   const t = data.totals;
   const value = cpr(t);
+  const st = summaryTips(t);
   return (
     <>
       <div className="mb-3 rounded-xl p-4" style={cardStyle}>
@@ -338,10 +340,10 @@ function Summary({ data }: { data: CampaignAnalysis }) {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Tile label="Gasto" value={money(t.spend)} />
         <Tile label="Resultados" value={t.results.toLocaleString("es-CO")} />
-        <Tile label="Costo por resultado" value={value > 0 ? money(value) : "-"} color={cprColor(value, t.results)} />
-        <Tile label="CTR enlace" value={`${dec(t.ctr)}%`} />
+        <Tile label="Costo por resultado" value={value > 0 ? money(value) : "-"} color={cprColor(value, t.results)} tip={st.cpr} />
+        <Tile label="CTR enlace" value={`${dec(t.ctr)}%`} color={BAND_COLOR[bandOf(t.ctr, AD_BANDS.ctr)]} tip={st.ctr} />
         <Tile label="CPM" value={money(t.cpm)} />
-        <Tile label="Frecuencia" value={dec(t.frequency)} color={t.frequency > 2 ? "var(--series-3)" : undefined} />
+        <Tile label="Frecuencia" value={dec(t.frequency)} color={t.frequency > 2 ? BAND_COLOR[freqBand(t.frequency)] : undefined} tip={st.freq} />
       </div>
     </>
   );
@@ -358,8 +360,8 @@ function Verdicts({ data }: { data: CampaignAnalysis }) {
   return (
     <>
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
-        <FindingList title="✅ Lo que funcionó" subtitle="Más barato que el promedio de la campaña: repítelo." items={data.works} empty="Ningún segmento sale claramente más barato que el promedio." good />
-        <FindingList title="❌ Lo que no funcionó" subtitle="Más caro que el promedio o sin resultados: recórtalo o cámbialo." items={data.fails} empty="Ningún segmento sale claramente más caro que el promedio. 👏" />
+        <FindingList title="✅ Lo que funcionó" subtitle="Más barato que el promedio de la campaña: repítelo." items={data.works} empty="Ningún segmento sale claramente más barato que el promedio." good totals={data.totals} />
+        <FindingList title="❌ Lo que no funcionó" subtitle="Más caro que el promedio o sin resultados: recórtalo o cámbialo." items={data.fails} empty="Ningún segmento sale claramente más caro que el promedio. 👏" totals={data.totals} />
       </div>
       {data.recipe.length > 0 && (
         <section className="mt-5 rounded-xl p-4" style={{ ...cardStyle, borderColor: "var(--brand)" }}>
@@ -390,7 +392,7 @@ function Verdicts({ data }: { data: CampaignAnalysis }) {
   );
 }
 
-function FindingList({ title, subtitle, items, empty, good }: { title: string; subtitle: string; items: Finding[]; empty: string; good?: boolean }) {
+function FindingList({ title, subtitle, items, empty, good, totals }: { title: string; subtitle: string; items: Finding[]; empty: string; good?: boolean; totals: { spend: number; results: number } }) {
   return (
     <section className="rounded-xl p-4" style={cardStyle}>
       <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
@@ -418,6 +420,14 @@ function FindingList({ title, subtitle, items, empty, good }: { title: string; s
               <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
                 {f.text}
               </p>
+              {!good && (() => {
+                const fix = segmentTip(f.dimension, { label: f.label, spend: f.spend, results: f.results }, totals);
+                return fix ? (
+                  <p className="mt-1.5 text-xs" style={{ color: "var(--text-primary)" }}>
+                    💡 <b>Qué hacer:</b> {fix.text.replace(/^.*?\. (?=[A-ZÁÉÍÓÚ¿“])/, "")}
+                  </p>
+                ) : null;
+              })()}
             </div>
           ))}
         </div>
@@ -427,6 +437,10 @@ function FindingList({ title, subtitle, items, empty, good }: { title: string; s
 }
 
 function AdsTab({ data }: { data: CampaignAnalysis }) {
+  const minSpend = data.totals.spend * 0.03;
+  const best =
+    [...data.ads].filter((a) => a.results >= 5 && a.spend >= minSpend).sort((a, b) => a.spend / a.results - b.spend / b.results)[0] ?? null;
+  const ctx = { totalSpend: data.totals.spend, avgCpr: cpr(data.totals), best };
   return (
     <div className="space-y-3">
       {data.ads.length === 0 && (
@@ -435,7 +449,7 @@ function AdsTab({ data }: { data: CampaignAnalysis }) {
         </p>
       )}
       {data.ads.map((a) => (
-        <AdCard key={a.ad_id} ad={a} totalSpend={data.totals.spend} />
+        <AdCard key={a.ad_id} ad={a} totalSpend={data.totals.spend} ctx={ctx} />
       ))}
     </div>
   );
@@ -448,8 +462,93 @@ function rankColor(label: string | null) {
   return "var(--critical)";
 }
 
-function AdCard({ ad, totalSpend }: { ad: AdRow; totalSpend: number }) {
+const BAND_COLOR: Record<Band, string> = {
+  rojo: "var(--critical)",
+  amarillo: "var(--series-3)",
+  verde: "var(--good)",
+  sin_dato: "var(--text-muted)",
+};
+
+const pct = (n: number | null) => (n === null ? "-" : `${dec(n, 1)}%`);
+
+// Tarjeta con sugerencia: al pasar el cursor (o tocar en el celular)
+// muestra qué ajustar. Solo aparece cuando hay un indicador en amarillo o rojo.
+function Hint({ tip, children, wide }: { tip?: Tip; children: React.ReactNode; wide?: boolean }) {
+  if (!tip) return <>{children}</>;
+  return (
+    <span className="group relative inline-flex" tabIndex={0}>
+      {children}
+      <span
+        role="tooltip"
+        className={`pointer-events-none absolute left-0 top-full z-40 mt-1 hidden rounded-lg p-3 text-xs leading-relaxed shadow-xl group-hover:block group-focus:block ${wide ? "w-96" : "w-80"} max-w-[85vw]`}
+        style={{ background: "var(--surface-raised)", border: `1px solid ${BAND_COLOR[tip.level]}`, color: "var(--text-primary)" }}
+      >
+        <b style={{ color: BAND_COLOR[tip.level] }}>💡 {tip.title}.</b> {tip.text}
+      </span>
+    </span>
+  );
+}
+
+function TipList({ tips, title = "Qué ajustar" }: { tips: Tip[]; title?: string }) {
+  if (tips.length === 0) return null;
+  const sorted = [...tips].sort((a, b) => (a.level === b.level ? 0 : a.level === "rojo" ? -1 : 1));
+  return (
+    <div className="mt-3 rounded-lg p-3" style={{ background: "var(--surface-raised)", border: "1px dashed var(--border)" }}>
+      <p className="mb-1.5 text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
+        💡 {title}
+      </p>
+      <ul className="space-y-1.5 text-xs leading-relaxed">
+        {sorted.map((t) => (
+          <li key={t.title + t.text.slice(0, 20)} className="pl-2" style={{ borderLeft: `3px solid ${BAND_COLOR[t.level]}`, color: "var(--text-secondary)" }}>
+            <b style={{ color: BAND_COLOR[t.level] }}>{t.title}:</b> {t.text}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// Hook rate, hold rate, CTR y tasa de conversión del anuncio con los
+// rangos de AD_BANDS. Hook y hold solo aplican a video.
+function CreativeRates({ ad, tips }: { ad: AdRow; tips: Partial<Record<AdMetricKey, Tip>> }) {
+  const r = adRates(ad);
+  const items: { key: AdMetricKey; label: string; value: number | null; band: Band; def: string }[] = [
+    ...(r.isVideo
+      ? [
+          { key: "hook" as const, label: "Hook rate", value: r.hook, band: bandOf(r.hook, AD_BANDS.hook), def: `Reproducciones de 3 s ÷ impresiones. Rojo < ${AD_BANDS.hook.red}%, verde > ${AD_BANDS.hook.green}%` },
+          { key: "hold" as const, label: "Hold rate", value: r.hold, band: bandOf(r.hold, AD_BANDS.hold), def: `ThruPlays ÷ reproducciones de 3 s. Rojo < ${AD_BANDS.hold.red}%, verde > ${AD_BANDS.hold.green}%` },
+        ]
+      : []),
+    { key: "ctr", label: "CTR", value: r.ctr, band: bandOf(r.ctr, AD_BANDS.ctr), def: `Clics en el enlace ÷ impresiones. Rojo < ${AD_BANDS.ctr.red}%, verde > ${AD_BANDS.ctr.green}%` },
+    { key: "conv", label: "Tasa de conversión", value: r.conv, band: bandOf(r.conv, AD_BANDS.conv), def: `Conversaciones iniciadas ÷ clics en el enlace. Rojo < ${AD_BANDS.conv.red}%, verde > ${AD_BANDS.conv.green}%` },
+  ];
+  return (
+    <div className="mt-2 flex flex-wrap gap-2">
+      {items.map((it) => (
+        <Hint key={it.key} tip={tips[it.key]}>
+          <div title={tips[it.key] ? undefined : it.def} className="rounded-md px-2.5 py-1" style={{ background: "var(--surface-raised)", borderLeft: `3px solid ${BAND_COLOR[it.band]}`, cursor: tips[it.key] ? "help" : undefined }}>
+            <p className="text-[10px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
+              {it.label} {tips[it.key] && "💡"}
+            </p>
+            <p className="text-sm font-semibold tabular-nums" style={{ color: BAND_COLOR[it.band] }}>
+              {pct(it.value)}
+            </p>
+          </div>
+        </Hint>
+      ))}
+      {!r.isVideo && (
+        <p className="self-center text-[11px]" style={{ color: "var(--text-muted)" }}>
+          Hook y hold rate solo aplican a video.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function AdCard({ ad, totalSpend, ctx }: { ad: AdRow; totalSpend: number; ctx: Parameters<typeof adTips>[1] }) {
   const value = cpr(ad);
+  const tips = adTips(ad, ctx);
+  const fColor = BAND_COLOR[freqBand(ad.frequency)];
   return (
     <div className="rounded-xl p-3" style={{ ...cardStyle, borderLeft: `3px solid ${cprColor(value, ad.results)}` }}>
       <div className="flex gap-3">
@@ -492,25 +591,34 @@ function AdCard({ ad, totalSpend }: { ad: AdRow; totalSpend: number }) {
             <span>
               Resultados <b style={{ color: "var(--text-primary)" }}>{ad.results}</b>
             </span>
-            <span>
-              Costo/res. <b style={{ color: cprColor(value, ad.results) }}>{ad.results > 0 ? money(value) : "-"}</b>
-            </span>
-            <span>
-              CTR <b style={{ color: "var(--text-primary)" }}>{ad.impressions > 0 ? dec((ad.clicks / ad.impressions) * 100) : "0,00"}%</b>
-            </span>
-            <span>
-              Frecuencia <b style={{ color: "var(--text-primary)" }}>{dec(ad.frequency)}</b>
-            </span>
-          </div>
-          <div className="mt-1.5 flex flex-wrap gap-1.5 text-[11px]">
-            {[
-              ["Calidad", ad.quality],
-              ["Interacción", ad.engagement],
-              ["Conversión", ad.conversion],
-            ].map(([k, v]) => (
-              <span key={k} className="rounded-full px-2 py-0.5 font-semibold" style={{ color: rankColor(v), border: `1px solid ${rankColor(v)}` }}>
-                {k}: {v ?? "sin dato"}
+            <Hint tip={tips.cpr} wide>
+              <span style={{ cursor: tips.cpr ? "help" : undefined }}>
+                Costo/res. <b style={{ color: cprColor(value, ad.results) }}>{ad.results > 0 ? money(value) : "-"}</b>
+                {tips.cpr && " 💡"}
               </span>
+            </Hint>
+            <Hint tip={tips.freq}>
+              <span style={{ cursor: tips.freq ? "help" : undefined }}>
+                Frecuencia <b style={{ color: fColor === "var(--good)" ? "var(--text-primary)" : fColor }}>{dec(ad.frequency)}</b>
+                {tips.freq && " 💡"}
+              </span>
+            </Hint>
+          </div>
+          <CreativeRates ad={ad} tips={tips} />
+          <div className="mt-1.5 flex flex-wrap gap-1.5 text-[11px]">
+            {(
+              [
+                ["Calidad", ad.quality, tips.calidad],
+                ["Interacción", ad.engagement, tips.interaccion],
+                ["Conversión", ad.conversion, tips.conversion],
+              ] as const
+            ).map(([k, v, t]) => (
+              <Hint key={k} tip={t}>
+                <span className="rounded-full px-2 py-0.5 font-semibold" style={{ color: rankColor(v), border: `1px solid ${rankColor(v)}`, cursor: t ? "help" : undefined }}>
+                  {k}: {v ?? "sin dato"}
+                  {t && " 💡"}
+                </span>
+              </Hint>
             ))}
           </div>
         </div>
@@ -534,6 +642,7 @@ function AdCard({ ad, totalSpend }: { ad: AdRow; totalSpend: number }) {
           )}
         </div>
       )}
+      <TipList tips={Object.values(tips).filter((t): t is Tip => !!t)} />
     </div>
   );
 }
@@ -568,15 +677,16 @@ function AudienceTab({ data }: { data: CampaignAnalysis }) {
                 </div>
               ))}
             </dl>
+            <TipList tips={adsetTips(s)} title="Qué ajustar en este público" />
           </div>
         );
       })}
-      {data.adsets.length > 1 && <SegmentTable title="Comparación de públicos" rows={data.segments.conjunto} totals={data.totals} />}
+      {data.adsets.length > 1 && <SegmentTable dimension="conjunto" title="Comparación de públicos" rows={data.segments.conjunto} totals={data.totals} />}
     </div>
   );
 }
 
-function SegmentTable({ title, hint, rows, totals, wrap, limit }: { title: string; hint?: string; rows: Segment[]; totals: { spend: number; results: number }; wrap?: boolean; limit?: number }) {
+function SegmentTable({ dimension, title, hint, rows, totals, wrap, limit }: { dimension: string; title: string; hint?: string; rows: Segment[]; totals: { spend: number; results: number }; wrap?: boolean; limit?: number }) {
   const [all, setAll] = useState(false);
   const avg = cpr(totals);
   const shown = limit && !all ? rows.slice(0, limit) : rows;
@@ -614,8 +724,10 @@ function SegmentTable({ title, hint, rows, totals, wrap, limit }: { title: strin
               {shown.map((r) => {
                 const v = cpr(r);
                 const delta = avg > 0 && v > 0 ? ((v - avg) / avg) * 100 : null;
+                const tip = segmentTip(dimension, r, totals);
                 return (
-                  <tr key={r.key} className="border-t align-top" style={{ borderColor: "var(--gridline)" }}>
+                  <Fragment key={r.key}>
+                  <tr className="border-t align-top" style={{ borderColor: "var(--gridline)" }}>
                     <td className="py-2 pr-3" style={{ color: "var(--text-primary)" }}>
                       <span className={wrap ? "block max-w-xl whitespace-pre-line break-words" : "block max-w-xs truncate"} title={r.label}>
                         {r.label}
@@ -645,6 +757,16 @@ function SegmentTable({ title, hint, rows, totals, wrap, limit }: { title: strin
                       {r.impressions > 0 ? `${dec((r.clicks / r.impressions) * 100)}%` : "-"}
                     </td>
                   </tr>
+                  {tip && (
+                    <tr>
+                      <td colSpan={8} className="pb-2 pt-0">
+                        <p className="rounded-md px-2 py-1.5 text-[11px] leading-relaxed" style={{ background: "var(--surface-raised)", borderLeft: `3px solid ${BAND_COLOR[tip.level]}`, color: "var(--text-secondary)" }}>
+                          <b style={{ color: BAND_COLOR[tip.level] }}>💡 {tip.title}:</b> {tip.text}
+                        </p>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })}
             </tbody>
@@ -696,7 +818,7 @@ function HoursTab({ rows, totals }: { rows: Segment[]; totals: { spend: number; 
           })}
         </svg>
       </section>
-      <SegmentTable title="Detalle por hora" rows={rows} totals={totals} />
+      <SegmentTable dimension="hora" title="Detalle por hora" rows={rows} totals={totals} />
     </>
   );
 }
@@ -704,7 +826,7 @@ function HoursTab({ rows, totals }: { rows: Segment[]; totals: { spend: number; 
 function DaysTab({ data }: { data: CampaignAnalysis }) {
   const days = data.daily.filter((d) => d.spend > 0);
   const rows: Segment[] = [...days].reverse().map((d) => ({ ...d, key: d.date, label: d.date }));
-  if (days.length < 2) return <SegmentTable title="Día a día" rows={rows} totals={data.totals} />;
+  if (days.length < 2) return <SegmentTable dimension="dia" title="Día a día" rows={rows} totals={data.totals} />;
   const W = 720;
   const H = 150;
   const pad = 24;
@@ -741,20 +863,27 @@ function DaysTab({ data }: { data: CampaignAnalysis }) {
           {pts && <polyline points={pts} fill="none" stroke="var(--brand)" strokeWidth={2} />}
         </svg>
       </section>
-      <SegmentTable title="Día a día" rows={rows} totals={data.totals} />
+      <SegmentTable dimension="dia" title="Día a día" rows={rows} totals={data.totals} />
     </>
   );
 }
 
-function Tile({ label, value, color }: { label: string; value: string; color?: string }) {
-  return (
-    <div className="rounded-xl p-4" style={cardStyle}>
+function Tile({ label, value, color, tip }: { label: string; value: string; color?: string; tip?: Tip }) {
+  const box = (
+    <div className="w-full rounded-xl p-4" style={{ ...cardStyle, cursor: tip ? "help" : undefined }}>
       <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-        {label}
+        {label} {tip && "💡"}
       </p>
       <p className="mt-1 text-xl font-semibold tabular-nums" style={{ color: color ?? "var(--text-primary)" }}>
         {value}
       </p>
     </div>
+  );
+  return tip ? (
+    <Hint tip={tip} wide>
+      {box}
+    </Hint>
+  ) : (
+    box
   );
 }

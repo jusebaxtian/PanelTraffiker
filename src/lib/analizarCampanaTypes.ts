@@ -59,6 +59,8 @@ export interface AdRow extends Metrics {
   message: string | null;
   preview_link: string | null;
   frequency: number;
+  video3s: number; // reproducciones de 3 segundos
+  thruplays: number; // reproducciones de 15 s o completas
   quality: string | null;
   engagement: string | null;
   conversion: string | null;
@@ -101,4 +103,25 @@ export interface CampaignAnalysis {
   fails: Finding[];
   recipe: Finding[];
   notes: string[];
+}
+
+// Rangos de color por anuncio (definidos por Sebastián, 2026-11-10).
+// Hook rate = reproducciones de 3 s ÷ impresiones.
+// Hold rate = ThruPlays ÷ reproducciones de 3 s.
+// CTR = clics en el enlace ÷ impresiones.
+// Conversión = conversaciones iniciadas ÷ clics en el enlace.
+export const AD_BANDS = {
+  hook: { red: 15, green: 25 },
+  hold: { red: 30, green: 45 },
+  ctr: { red: 1, green: 3 },
+  conv: { red: 40, green: 55 },
+} as const;
+
+export type Band = "rojo" | "amarillo" | "verde" | "sin_dato";
+
+export function bandOf(value: number | null, limits: { red: number; green: number }): Band {
+  if (value === null || !Number.isFinite(value)) return "sin_dato";
+  if (value < limits.red) return "rojo";
+  if (value <= limits.green) return "amarillo";
+  return "verde";
 }
