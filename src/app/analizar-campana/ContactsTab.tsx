@@ -169,15 +169,6 @@ export default function ContactsTab({ data }: { data: CampaignAnalysis }) {
                   Ver anuncio ↗
                 </a>
               )}
-              <a
-                href={adsManagerUrl(data.campaign.account_id, ad.ad_id)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="shrink-0 rounded-md px-3 py-1.5 text-xs font-medium"
-                style={linkBtn}
-              >
-                Ads Manager ↗
-              </a>
               {list.length > 0 && (
                 <button
                   onClick={() => toggle(ad.ad_id, list)}
