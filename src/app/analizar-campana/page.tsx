@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { CPR_IDEAL, CPR_MAX } from "@/lib/adDiagnosis";
 import { adRates, adTips, adsetTips, freqBand, segmentTip, summaryTips, type AdMetricKey, type Tip } from "@/lib/analizarTips";
+import ContactsTab from "./ContactsTab";
 import { AD_BANDS, bandOf, DIMENSION_LABEL, type AdRow, type Band, type CampaignAnalysis, type Finding, type Segment } from "@/lib/analizarCampanaTypes";
 
 interface CampaignOption {
@@ -31,6 +32,7 @@ const TABS: { key: string; label: string }[] = [
   { key: "horas", label: "Horas" },
   { key: "dispositivos", label: "Dispositivos" },
   { key: "dias", label: "Día a día" },
+  { key: "contactos", label: "Contactos" },
 ];
 
 const OBJECTIVE_LABEL: Record<string, string> = {
@@ -295,6 +297,7 @@ export default function AnalizarCampanaPage() {
               {tab === "horas" && <HoursTab rows={data.segments.hora} totals={data.totals} />}
               {tab === "dispositivos" && <SegmentTable dimension="dispositivo" title="Dispositivo" rows={data.segments.dispositivo} totals={data.totals} />}
               {tab === "dias" && <DaysTab data={data} />}
+              {tab === "contactos" && <ContactsTab data={data} />}
             </div>
 
             {data.notes.length > 0 && (
