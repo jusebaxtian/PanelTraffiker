@@ -340,10 +340,10 @@ function Summary({ data }: { data: CampaignAnalysis }) {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Tile label="Gasto" value={money(t.spend)} />
         <Tile label="Resultados" value={t.results.toLocaleString("es-CO")} />
-        <Tile label="Costo por resultado" value={value > 0 ? money(value) : "-"} color={cprColor(value, t.results)} tip={st.cpr} />
-        <Tile label="CTR enlace" value={`${dec(t.ctr)}%`} color={BAND_COLOR[bandOf(t.ctr, AD_BANDS.ctr)]} tip={st.ctr} />
+        <Tile label="Costo por resultado" value={value > 0 ? money(value) : "-"} color={cprColor(value, t.results)} tip={st.cpr} info={cprInfo(value, t.results)} />
+        <Tile label="CTR enlace" value={`${dec(t.ctr)}%`} color={BAND_COLOR[bandOf(t.ctr, AD_BANDS.ctr)]} tip={st.ctr} info={rateInfo(t.ctr, AD_BANDS.ctr, "CTR: clics en el enlace ÷ impresiones de toda la campaña.")} />
         <Tile label="CPM" value={money(t.cpm)} />
-        <Tile label="Frecuencia" value={dec(t.frequency)} color={t.frequency > 2 ? BAND_COLOR[freqBand(t.frequency)] : undefined} tip={st.freq} />
+        <Tile label="Frecuencia" value={dec(t.frequency)} color={t.frequency > 2 ? BAND_COLOR[freqBand(t.frequency)] : undefined} tip={st.freq} info={freqInfo(t.frequency)} />
       </div>
     </>
   );
@@ -473,17 +473,79 @@ const pct = (n: number | null) => (n === null ? "-" : `${dec(n, 1)}%`);
 
 // Tarjeta con sugerencia: al pasar el cursor (o tocar en el celular)
 // muestra qué ajustar. Solo aparece cuando hay un indicador en amarillo o rojo.
-function Hint({ tip, children, wide }: { tip?: Tip; children: React.ReactNode; wide?: boolean }) {
-  if (!tip) return <>{children}</>;
+// Rango del semáforo de un indicador: qué es, los tres colores y cuánto
+// falta para llegar a verde.
+interface RangeInfo {
+  def: string;
+  ranges: string;
+  gap?: string;
+  band: Band;
+}
+
+const fmtPts = (n: number) => dec(Math.max(0, n), 1);
+
+// Indicadores donde más es mejor (hook, hold, CTR, conversión).
+function rateInfo(value: number | null, lim: { red: number; green: number }, def: string): RangeInfo {
+  const band = bandOf(value, lim);
+  const ranges = `🔴 menos de ${lim.red}%  ·  🟡 ${lim.red}% a ${lim.green}%  ·  🟢 más de ${lim.green}%`;
+  let gap: string | undefined;
+  if (value !== null) {
+    if (band === "rojo") gap = `Estás en ${pct(value)}. Te faltan ${fmtPts(lim.red - value)} puntos para amarillo y ${fmtPts(lim.green - value)} para verde (pasar de ${lim.green}%).`;
+    else if (band === "amarillo") gap = `Estás en ${pct(value)}. Te faltan ${fmtPts(lim.green - value)} puntos para verde (pasar de ${lim.green}%).`;
+    else gap = `Estás en ${pct(value)}: en verde.`;
+  }
+  return { def, ranges, gap, band };
+}
+
+// Indicadores donde menos es mejor (costo por resultado, frecuencia).
+function lowerInfo(value: number, okUpTo: number, maxUpTo: number, fmt: (n: number) => string, def: string, hasData = true): RangeInfo {
+  const band: Band = !hasData || !value ? "sin_dato" : value <= okUpTo ? "verde" : value <= maxUpTo ? "amarillo" : "rojo";
+  const ranges = `🟢 hasta ${fmt(okUpTo)}  ·  🟡 ${fmt(okUpTo)} a ${fmt(maxUpTo)}  ·  🔴 más de ${fmt(maxUpTo)}`;
+  let gap: string | undefined;
+  if (band === "rojo") gap = `Estás en ${fmt(value)}. Te falta bajar ${fmt(value - maxUpTo)} para amarillo y ${fmt(value - okUpTo)} para verde (${fmt(okUpTo)} o menos).`;
+  else if (band === "amarillo") gap = `Estás en ${fmt(value)}. Te falta bajar ${fmt(value - okUpTo)} para verde (${fmt(okUpTo)} o menos).`;
+  else if (band === "verde") gap = `Estás en ${fmt(value)}: en verde.`;
+  return { def, ranges, gap, band };
+}
+
+const cprInfo = (value: number, results: number) =>
+  lowerInfo(value, CPR_IDEAL, CPR_MAX, money, "Costo por resultado: gasto ÷ conversaciones iniciadas. Tu ideal es " + money(CPR_IDEAL) + " y tu máximo " + money(CPR_MAX) + ".", results > 0);
+const freqInfo = (value: number) =>
+  lowerInfo(value, 2, 3, (n) => dec(n), "Frecuencia: cuántas veces, en promedio, vio el anuncio cada persona. Por encima de 2 empieza el cansancio.");
+
+// Al pasar el cursor (o tocar en el celular) muestra el rango del
+// semáforo, cuánto falta para verde y, si está en amarillo o rojo, qué ajustar.
+function Hint({ tip, info, children, wide }: { tip?: Tip; info?: RangeInfo; children: React.ReactNode; wide?: boolean }) {
+  if (!tip && !info) return <>{children}</>;
+  const color = tip ? BAND_COLOR[tip.level] : info ? BAND_COLOR[info.band] : "var(--border)";
   return (
-    <span className="group relative inline-flex" tabIndex={0}>
+    <span className="group relative inline-flex" tabIndex={0} style={{ cursor: "help" }}>
       {children}
       <span
         role="tooltip"
         className={`pointer-events-none absolute left-0 top-full z-40 mt-1 hidden rounded-lg p-3 text-xs leading-relaxed shadow-xl group-hover:block group-focus:block ${wide ? "w-96" : "w-80"} max-w-[85vw]`}
-        style={{ background: "var(--surface-raised)", border: `1px solid ${BAND_COLOR[tip.level]}`, color: "var(--text-primary)" }}
+        style={{ background: "var(--surface-raised)", border: `1px solid ${color}`, color: "var(--text-primary)" }}
       >
-        <b style={{ color: BAND_COLOR[tip.level] }}>💡 {tip.title}.</b> {tip.text}
+        {info && (
+          <span className="block">
+            <span className="block" style={{ color: "var(--text-muted)" }}>
+              {info.def}
+            </span>
+            <span className="mt-1.5 block font-semibold tabular-nums" style={{ color: "var(--text-secondary)" }}>
+              {info.ranges}
+            </span>
+            {info.gap && (
+              <span className="mt-1.5 block font-semibold" style={{ color: BAND_COLOR[info.band] }}>
+                {info.gap}
+              </span>
+            )}
+          </span>
+        )}
+        {tip && (
+          <span className={`block ${info ? "mt-2 border-t pt-2" : ""}`} style={{ borderColor: "var(--gridline)" }}>
+            <b style={{ color: BAND_COLOR[tip.level] }}>💡 {tip.title}.</b> {tip.text}
+          </span>
+        )}
       </span>
     </span>
   );
@@ -512,23 +574,24 @@ function TipList({ tips, title = "Qué ajustar" }: { tips: Tip[]; title?: string
 // rangos de AD_BANDS. Hook y hold solo aplican a video.
 function CreativeRates({ ad, tips }: { ad: AdRow; tips: Partial<Record<AdMetricKey, Tip>> }) {
   const r = adRates(ad);
+  const lim = { hook: AD_BANDS.hook, hold: AD_BANDS.hold, ctr: AD_BANDS.ctr, conv: AD_BANDS.conv } as Record<string, { red: number; green: number }>;
   const items: { key: AdMetricKey; label: string; value: number | null; band: Band; def: string }[] = [
     ...(r.isVideo
       ? [
-          { key: "hook" as const, label: "Hook rate", value: r.hook, band: bandOf(r.hook, AD_BANDS.hook), def: `Reproducciones de 3 s ÷ impresiones. Rojo < ${AD_BANDS.hook.red}%, verde > ${AD_BANDS.hook.green}%` },
-          { key: "hold" as const, label: "Hold rate", value: r.hold, band: bandOf(r.hold, AD_BANDS.hold), def: `ThruPlays ÷ reproducciones de 3 s. Rojo < ${AD_BANDS.hold.red}%, verde > ${AD_BANDS.hold.green}%` },
+          { key: "hook" as const, label: "Hook rate", value: r.hook, band: bandOf(r.hook, AD_BANDS.hook), def: "Hook rate: reproducciones de 3 segundos ÷ impresiones. Mide si el inicio frena a la gente." },
+          { key: "hold" as const, label: "Hold rate", value: r.hold, band: bandOf(r.hold, AD_BANDS.hold), def: "Hold rate: ThruPlays (15 s o completo) ÷ reproducciones de 3 segundos. Mide si el video sostiene a quien enganchó." },
         ]
       : []),
-    { key: "ctr", label: "CTR", value: r.ctr, band: bandOf(r.ctr, AD_BANDS.ctr), def: `Clics en el enlace ÷ impresiones. Rojo < ${AD_BANDS.ctr.red}%, verde > ${AD_BANDS.ctr.green}%` },
-    { key: "conv", label: "Tasa de conversión", value: r.conv, band: bandOf(r.conv, AD_BANDS.conv), def: `Conversaciones iniciadas ÷ clics en el enlace. Rojo < ${AD_BANDS.conv.red}%, verde > ${AD_BANDS.conv.green}%` },
+    { key: "ctr", label: "CTR", value: r.ctr, band: bandOf(r.ctr, AD_BANDS.ctr), def: "CTR: clics en el enlace ÷ impresiones. Mide cuántos tocan el botón." },
+    { key: "conv", label: "Tasa de conversión", value: r.conv, band: bandOf(r.conv, AD_BANDS.conv), def: "Tasa de conversión: conversaciones iniciadas ÷ clics en el enlace. Mide cuántos de los que tocan el botón envían el mensaje." },
   ];
   return (
     <div className="mt-2 flex flex-wrap gap-2">
       {items.map((it) => (
-        <Hint key={it.key} tip={tips[it.key]}>
-          <div title={tips[it.key] ? undefined : it.def} className="rounded-md px-2.5 py-1" style={{ background: "var(--surface-raised)", borderLeft: `3px solid ${BAND_COLOR[it.band]}`, cursor: tips[it.key] ? "help" : undefined }}>
+        <Hint key={it.key} tip={tips[it.key]} info={rateInfo(it.value, lim[it.key], it.def)}>
+          <div className="rounded-md px-2.5 py-1" style={{ background: "var(--surface-raised)", borderLeft: `3px solid ${BAND_COLOR[it.band]}` }}>
             <p className="text-[10px] uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-              {it.label} {tips[it.key] && "💡"}
+              {it.label} {tips[it.key] ? "💡" : "ⓘ"}
             </p>
             <p className="text-sm font-semibold tabular-nums" style={{ color: BAND_COLOR[it.band] }}>
               {pct(it.value)}
@@ -591,16 +654,16 @@ function AdCard({ ad, totalSpend, ctx }: { ad: AdRow; totalSpend: number; ctx: P
             <span>
               Resultados <b style={{ color: "var(--text-primary)" }}>{ad.results}</b>
             </span>
-            <Hint tip={tips.cpr} wide>
+            <Hint tip={tips.cpr} info={cprInfo(value, ad.results)} wide>
               <span style={{ cursor: tips.cpr ? "help" : undefined }}>
                 Costo/res. <b style={{ color: cprColor(value, ad.results) }}>{ad.results > 0 ? money(value) : "-"}</b>
-                {tips.cpr && " 💡"}
+                {tips.cpr ? " 💡" : " ⓘ"}
               </span>
             </Hint>
-            <Hint tip={tips.freq}>
+            <Hint tip={tips.freq} info={freqInfo(ad.frequency)}>
               <span style={{ cursor: tips.freq ? "help" : undefined }}>
                 Frecuencia <b style={{ color: fColor === "var(--good)" ? "var(--text-primary)" : fColor }}>{dec(ad.frequency)}</b>
-                {tips.freq && " 💡"}
+                {tips.freq ? " 💡" : " ⓘ"}
               </span>
             </Hint>
           </div>
@@ -868,19 +931,19 @@ function DaysTab({ data }: { data: CampaignAnalysis }) {
   );
 }
 
-function Tile({ label, value, color, tip }: { label: string; value: string; color?: string; tip?: Tip }) {
+function Tile({ label, value, color, tip, info }: { label: string; value: string; color?: string; tip?: Tip; info?: RangeInfo }) {
   const box = (
-    <div className="w-full rounded-xl p-4" style={{ ...cardStyle, cursor: tip ? "help" : undefined }}>
+    <div className="w-full rounded-xl p-4" style={cardStyle}>
       <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-        {label} {tip && "💡"}
+        {label} {tip ? "💡" : info ? "ⓘ" : ""}
       </p>
       <p className="mt-1 text-xl font-semibold tabular-nums" style={{ color: color ?? "var(--text-primary)" }}>
         {value}
       </p>
     </div>
   );
-  return tip ? (
-    <Hint tip={tip} wide>
+  return tip || info ? (
+    <Hint tip={tip} info={info} wide>
       {box}
     </Hint>
   ) : (
