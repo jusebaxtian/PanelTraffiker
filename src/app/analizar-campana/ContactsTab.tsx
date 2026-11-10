@@ -10,6 +10,12 @@ const PAGE = 50;
 const cardStyle = { background: "var(--surface)", border: "1px solid var(--border)" } as const;
 const RED_COLOR: Record<string, string> = { Facebook: "#1877F2", Instagram: "#E1306C", "Sin dato": "var(--text-muted)" };
 
+// Enlace al anuncio dentro del Administrador de anuncios de Meta.
+const adsManagerUrl = (accountId: string, adId: string) =>
+  `https://adsmanager.facebook.com/adsmanager/manage/ads?act=${accountId.replace(/^act_/, "")}&selected_ad_ids=${adId}`;
+
+const linkBtn = { background: "var(--surface-raised)", color: "var(--text-primary)", border: "1px solid var(--border)" } as const;
+
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleString("es-CO", { timeZone: "America/Bogota", day: "2-digit", month: "short", hour: "numeric", minute: "2-digit" });
 }
@@ -158,6 +164,20 @@ export default function ContactsTab({ data }: { data: CampaignAnalysis }) {
                   )}
                 </p>
               </div>
+              {ad.preview_link && (
+                <a href={ad.preview_link} target="_blank" rel="noopener noreferrer" className="shrink-0 rounded-md px-3 py-1.5 text-xs font-medium" style={linkBtn}>
+                  Ver anuncio ↗
+                </a>
+              )}
+              <a
+                href={adsManagerUrl(data.campaign.account_id, ad.ad_id)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 rounded-md px-3 py-1.5 text-xs font-medium"
+                style={linkBtn}
+              >
+                Ads Manager ↗
+              </a>
               {list.length > 0 && (
                 <button
                   onClick={() => toggle(ad.ad_id, list)}
@@ -192,7 +212,18 @@ export default function ContactsTab({ data }: { data: CampaignAnalysis }) {
                           {c.phone && <p style={{ color: "var(--text-muted)" }}>{c.phone}</p>}
                         </td>
                         <td className="whitespace-nowrap py-2 pr-2" style={{ color: "var(--text-secondary)" }}>{fmtDate(c.date)}</td>
-                        <td className="py-2 pr-2" style={{ color: "var(--text-secondary)" }}>{ad.name}</td>
+                        <td className="py-2 pr-2">
+                          <a
+                            href={ad.preview_link ?? adsManagerUrl(data.campaign.account_id, ad.ad_id)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline decoration-dotted underline-offset-2"
+                            style={{ color: "var(--brand)" }}
+                            title="Ver el anuncio"
+                          >
+                            {ad.name} ↗
+                          </a>
+                        </td>
                         <td className="py-2 pr-2" style={{ color: "var(--text-secondary)" }}>{ad.adset_name}</td>
                         <td className="py-2 pr-2" style={{ color: "var(--text-secondary)" }}>{data.campaign.name}</td>
                         <td className="py-2 pr-2 font-medium" style={{ color: RED_COLOR[c.red] }}>{c.red}</td>
