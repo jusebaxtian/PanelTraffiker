@@ -15,6 +15,7 @@ export interface ContactoCampana {
   ftd: string | null; // campo "ID Plataforma" (FTD)
   ftd_date: string | null; // cuándo se llenó el FTD
   ftd_date_exact: boolean; // false = se toma la última edición del contacto (aproximado)
+  demo?: boolean; // contacto de prueba agregado solo en la vista (?demo=1), no cambia nada en GHL
 }
 
 export interface ContactosResponse {

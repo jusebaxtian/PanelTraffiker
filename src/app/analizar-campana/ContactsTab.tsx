@@ -40,6 +40,11 @@ export default function ContactsTab({ data }: { data: CampaignAnalysis }) {
     if (!adIds.length) return;
     let cancelled = false;
     const q = new URLSearchParams({ campaign_id: data.campaign.id, since: data.range.since, until: data.range.until, ad_ids: adIds.join(",") });
+    // Modo prueba (?demo=1): pide el contacto de ejemplo en el anuncio "TiktokLive" o en el primero.
+    if (new URLSearchParams(window.location.search).get("demo") === "1") {
+      const demoAd = data.ads.find((a) => a.name.toLowerCase().includes("tiktoklive")) ?? data.ads[0];
+      if (demoAd) q.set("demo_ad", demoAd.ad_id);
+    }
     fetch(`/api/analizar-campana/contactos?${q}`)
       .then((r) => r.json())
       .then((json) => {
@@ -49,7 +54,7 @@ export default function ContactsTab({ data }: { data: CampaignAnalysis }) {
     return () => {
       cancelled = true;
     };
-  }, [queryKey, adIds, data.campaign.id, data.range.since, data.range.until]);
+  }, [queryKey, adIds, data.ads, data.campaign.id, data.range.since, data.range.until]);
 
   const current = result?.key === queryKey ? result : null;
   const contacts = useMemo(() => current?.data?.contacts ?? [], [current]);
@@ -242,9 +247,16 @@ export default function ContactsTab({ data }: { data: CampaignAnalysis }) {
                   </thead>
                   <tbody>
                     {list.slice(0, n).map((c) => (
-                      <tr key={c.id} className="border-t align-top" style={{ borderColor: "var(--gridline)" }}>
+                      <tr key={c.id} className="border-t align-top" style={{ borderColor: "var(--gridline)", background: c.ftd ? "color-mix(in srgb, var(--good) 10%, transparent)" : undefined }}>
                         <td className="py-2 pr-2">
-                          <p className="font-medium" style={{ color: "var(--text-primary)" }}>{c.name}</p>
+                          <p className="font-medium" style={{ color: "var(--text-primary)" }}>
+                            {c.name}
+                            {c.demo && (
+                              <span className="ml-1.5 rounded px-1.5 py-0.5 text-[10px] font-semibold" style={{ background: "var(--series-3)", color: "#000" }}>
+                                Ejemplo
+                              </span>
+                            )}
+                          </p>
                           {c.phone && <p style={{ color: "var(--text-muted)" }}>{c.phone}</p>}
                         </td>
                         <td className="whitespace-nowrap py-2 pr-2 font-semibold tabular-nums" style={{ color: c.ftd ? "var(--good)" : "var(--text-muted)" }}>

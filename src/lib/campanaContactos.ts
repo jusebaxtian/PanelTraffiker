@@ -174,6 +174,41 @@ async function contactsOf(conn: Connection, adIds: Set<string>, start: Date, end
   return { contacts: out, truncated, hasFtd: !!meta.ftdId };
 }
 
+// Modo prueba (?demo=1, solo SuperAdmin): muestra el contacto "jp" de
+// JuanFDianaC, que tiene ID Plataforma lleno, como si hubiera llegado por el
+// anuncio indicado. Solo se agrega a la respuesta: no se toca nada en GHL.
+const DEMO_CRM = "JuanFDianaC";
+const DEMO_CONTACT_ID = "BAHk0qL9pDku917osRG7";
+
+export async function fetchDemoContact(adId: string): Promise<ContactoCampana | null> {
+  const supabase = supabaseServer();
+  const { data } = await supabase.from("proyeccion_crm_connections").select("id, name, location_id, access_token").eq("name", DEMO_CRM).maybeSingle();
+  const conn = data as Connection | null;
+  if (!conn) return null;
+  const meta = await locationMeta(conn);
+  const json = await ghlFetch(`${GHL_BASE_URL}/contacts/${DEMO_CONTACT_ID}`, { headers: headers(conn.access_token, "2021-07-28") });
+  const c = json.contact as GhlContact | undefined;
+  if (!c) return null;
+  const ftd = fieldValue(c, meta.ftdId);
+  const exactDate = ftd ? toIso(fieldValue(c, meta.ftdDateId)) : null;
+  return {
+    id: c.id,
+    crm_id: conn.id,
+    crm_name: conn.name,
+    location_id: conn.location_id,
+    name: c.contactName || [c.firstName, c.lastName].filter(Boolean).join(" ") || c.phone || "Sin nombre",
+    phone: c.phone ?? null,
+    date: c.dateAdded,
+    ad_id: adId,
+    red: "Facebook",
+    asesor: c.assignedTo ? meta.users.get(c.assignedTo) ?? "Asesor sin nombre" : null,
+    ftd,
+    ftd_date: ftd ? exactDate ?? c.dateUpdated ?? null : null,
+    ftd_date_exact: !!exactDate,
+    demo: true,
+  };
+}
+
 export async function fetchCampaignContacts(opts: { campaignId: string; adIds: string[]; start: Date; end: Date }) {
   const conns = await connectionsFor(opts.campaignId);
   const adIds = new Set(opts.adIds);
