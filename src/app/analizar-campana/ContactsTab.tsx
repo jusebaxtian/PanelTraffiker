@@ -4,9 +4,10 @@
 // campaña, con su conjunto, campaña, red social y el mensaje que escribieron.
 import { useEffect, useMemo, useState } from "react";
 import type { CampaignAnalysis } from "@/lib/analizarCampanaTypes";
-import { ghlContactUrl, type ContactoCampana, type ContactosResponse } from "@/lib/campanaContactosTypes";
+import { ftdDays, ghlContactUrl, type ContactoCampana, type ContactosResponse } from "@/lib/campanaContactosTypes";
 
 const PAGE = 50;
+const money = (n: number) => "$" + Math.round(n).toLocaleString("es-CO");
 const cardStyle = { background: "var(--surface)", border: "1px solid var(--border)" } as const;
 const RED_COLOR: Record<string, string> = { Facebook: "#1877F2", Instagram: "#E1306C", "Sin dato": "var(--text-muted)" };
 
@@ -15,6 +16,11 @@ const adsManagerUrl = (accountId: string, adId: string) =>
   `https://adsmanager.facebook.com/adsmanager/manage/ads?act=${accountId.replace(/^act_/, "")}&selected_ad_ids=${adId}`;
 
 const linkBtn = { background: "var(--surface-raised)", color: "var(--text-primary)", border: "1px solid var(--border)" } as const;
+
+function daysLabel(d: number | null) {
+  if (d === null) return "-";
+  return d === 0 ? "0 (mismo día)" : String(d);
+}
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleString("es-CO", { timeZone: "America/Bogota", day: "2-digit", month: "short", hour: "numeric", minute: "2-digit" });
@@ -28,6 +34,7 @@ export default function ContactsTab({ data }: { data: CampaignAnalysis }) {
   const [shown, setShown] = useState<Record<string, number>>({});
   const [messages, setMessages] = useState<Record<string, string | null>>({});
   const [loadingMsgs, setLoadingMsgs] = useState(false);
+  const [onlyFtd, setOnlyFtd] = useState(false);
 
   useEffect(() => {
     if (!adIds.length) return;
@@ -49,12 +56,12 @@ export default function ContactsTab({ data }: { data: CampaignAnalysis }) {
 
   const groups = useMemo(() => {
     const byAd = new Map<string, ContactoCampana[]>();
-    contacts.forEach((c) => byAd.set(c.ad_id, [...(byAd.get(c.ad_id) ?? []), c]));
+    contacts.filter((c) => !onlyFtd || c.ftd).forEach((c) => byAd.set(c.ad_id, [...(byAd.get(c.ad_id) ?? []), c]));
     return data.ads
       .map((ad) => ({ ad, list: byAd.get(ad.ad_id) ?? [] }))
-      .filter((g) => g.list.length > 0 || g.ad.results > 0)
+      .filter((g) => g.list.length > 0 || (!onlyFtd && g.ad.results > 0))
       .sort((a, b) => b.list.length - a.list.length || b.ad.results - a.ad.results);
-  }, [contacts, data.ads]);
+  }, [contacts, data.ads, onlyFtd]);
 
   // Pide el mensaje de los contactos visibles que aún no lo tienen.
   async function loadMessages(list: ContactoCampana[]) {
@@ -107,6 +114,10 @@ export default function ContactsTab({ data }: { data: CampaignAnalysis }) {
   const metaTotal = data.totals.results;
   const fb = contacts.filter((c) => c.red === "Facebook").length;
   const ig = contacts.filter((c) => c.red === "Instagram").length;
+  const ftds = contacts.filter((c) => c.ftd);
+  const days = ftds.map(ftdDays).filter((d): d is number => d !== null);
+  const avgDays = days.length ? days.reduce((a, b) => a + b, 0) / days.length : null;
+  const anyApprox = ftds.some((c) => !c.ftd_date_exact);
 
   return (
     <div className="space-y-3">
@@ -124,6 +135,28 @@ export default function ContactsTab({ data }: { data: CampaignAnalysis }) {
           Subcuenta: {res.crms.length ? res.crms.join(", ") : "ninguna con contactos de estos anuncios"} · Facebook {fb} · Instagram {ig}
           {contacts.length - fb - ig > 0 && ` · sin dato ${contacts.length - fb - ig}`} · Del {data.range.since} al {data.range.until}
         </p>
+        {res.ftd_field ? (
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm" style={{ color: "var(--text-primary)" }}>
+            <span>
+              <b style={{ color: "var(--good)" }}>{ftds.length}</b> FTDs (ID Plataforma lleno)
+            </span>
+            {contacts.length > 0 && <span style={{ color: "var(--text-secondary)" }}>{((ftds.length / contacts.length) * 100).toFixed(1)}% de los que llegaron</span>}
+            {ftds.length > 0 && (
+              <span style={{ color: "var(--text-secondary)" }}>
+                Costo por FTD: <b>{money(data.totals.spend / ftds.length)}</b>
+              </span>
+            )}
+            {avgDays !== null && <span style={{ color: "var(--text-secondary)" }}>Demoran en promedio {avgDays.toFixed(1)} días</span>}
+            <label className="ml-auto flex cursor-pointer items-center gap-1.5 text-xs" style={{ color: "var(--text-secondary)" }}>
+              <input type="checkbox" checked={onlyFtd} onChange={(e) => setOnlyFtd(e.target.checked)} />
+              Ver solo FTDs
+            </label>
+          </div>
+        ) : (
+          <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+            Esta subcuenta no tiene el campo &quot;ID Plataforma&quot;, por eso no se pueden contar FTDs.
+          </p>
+        )}
         {res.truncated && (
           <p className="mt-1 text-xs" style={{ color: "var(--series-3)" }}>
             El período tiene demasiados contactos; se muestran los más recientes. Acorta las fechas para ver todo.
@@ -141,6 +174,7 @@ export default function ContactsTab({ data }: { data: CampaignAnalysis }) {
         const n = shown[ad.ad_id] ?? PAGE;
         const adFb = list.filter((c) => c.red === "Facebook").length;
         const adIg = list.filter((c) => c.red === "Instagram").length;
+        const adFtd = list.filter((c) => c.ftd).length;
         return (
           <div key={ad.ad_id} className="rounded-xl" style={cardStyle}>
             <div className="flex flex-wrap items-center gap-3 p-3">
@@ -155,11 +189,18 @@ export default function ContactsTab({ data }: { data: CampaignAnalysis }) {
                   {ad.name}
                 </p>
                 <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                  <b style={{ color: "var(--text-primary)" }}>{list.length}</b> {list.length === 1 ? "conversación llegó" : "conversaciones llegaron"} al CRM
+                  <b style={{ color: "var(--text-primary)" }}>{list.length}</b>{" "}
+                  {onlyFtd ? (list.length === 1 ? "FTD" : "FTDs") : list.length === 1 ? "conversación llegó al CRM" : "conversaciones llegaron al CRM"}
                   {" "}· Meta reporta {ad.results}
                   {list.length > 0 && (
                     <>
                       {" "}· <span style={{ color: RED_COLOR.Facebook }}>Facebook {adFb}</span> · <span style={{ color: RED_COLOR.Instagram }}>Instagram {adIg}</span>
+                    </>
+                  )}
+                  {res.ftd_field && !onlyFtd && (
+                    <>
+                      {" "}· <b style={{ color: adFtd ? "var(--good)" : "var(--text-muted)" }}>{adFtd} FTDs</b>
+                      {adFtd > 0 && ` (${money(ad.spend / adFtd)} c/u)`}
                     </>
                   )}
                 </p>
@@ -182,11 +223,15 @@ export default function ContactsTab({ data }: { data: CampaignAnalysis }) {
 
             {isOpen && (
               <div className="overflow-x-auto border-t px-3 pb-3" style={{ borderColor: "var(--gridline)" }}>
-                <table className="w-full min-w-[900px] text-xs">
+                <table className="w-full min-w-[1250px] text-xs">
                   <thead>
                     <tr style={{ color: "var(--text-muted)" }}>
                       <th className="py-2 text-left font-medium">Contacto</th>
-                      <th className="py-2 text-left font-medium">Llegó</th>
+                      <th className="py-2 text-left font-medium">ID Plataforma (FTD)</th>
+                      <th className="py-2 text-left font-medium">Asesor</th>
+                      <th className="py-2 text-left font-medium">Entró al CRM</th>
+                      <th className="py-2 text-left font-medium">Llenó FTD</th>
+                      <th className="py-2 text-right font-medium">Días</th>
                       <th className="py-2 text-left font-medium">Anuncio</th>
                       <th className="py-2 text-left font-medium">Conjunto</th>
                       <th className="py-2 text-left font-medium">Campaña</th>
@@ -202,7 +247,23 @@ export default function ContactsTab({ data }: { data: CampaignAnalysis }) {
                           <p className="font-medium" style={{ color: "var(--text-primary)" }}>{c.name}</p>
                           {c.phone && <p style={{ color: "var(--text-muted)" }}>{c.phone}</p>}
                         </td>
+                        <td className="whitespace-nowrap py-2 pr-2 font-semibold tabular-nums" style={{ color: c.ftd ? "var(--good)" : "var(--text-muted)" }}>
+                          {c.ftd ?? "-"}
+                        </td>
+                        <td className="py-2 pr-2" style={{ color: "var(--text-secondary)" }}>
+                          {c.asesor ?? <span style={{ color: "var(--text-muted)" }}>Sin asignar</span>}
+                        </td>
                         <td className="whitespace-nowrap py-2 pr-2" style={{ color: "var(--text-secondary)" }}>{fmtDate(c.date)}</td>
+                        <td
+                          className="whitespace-nowrap py-2 pr-2"
+                          style={{ color: "var(--text-secondary)" }}
+                          title={c.ftd && !c.ftd_date_exact ? "Aproximado: última vez que se editó el contacto" : undefined}
+                        >
+                          {c.ftd && c.ftd_date ? fmtDate(c.ftd_date) + (c.ftd_date_exact ? "" : " *") : "-"}
+                        </td>
+                        <td className="whitespace-nowrap py-2 pr-2 text-right tabular-nums" style={{ color: "var(--text-primary)" }}>
+                          {daysLabel(ftdDays(c))}
+                        </td>
                         <td className="py-2 pr-2">
                           <a
                             href={ad.preview_link ?? adsManagerUrl(data.campaign.account_id, ad.ad_id)}
@@ -248,6 +309,13 @@ export default function ContactsTab({ data }: { data: CampaignAnalysis }) {
       })}
 
       <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+        {anyApprox && (
+          <>
+            * Fecha aproximada: GoHighLevel no guarda cuándo se llenó un campo, así que se usa la última vez que se editó el contacto. Para tener la fecha
+            exacta, crea en la subcuenta un campo de fecha llamado &quot;Fecha FTD&quot; y un flujo que lo llene cuando se llene ID Plataforma; el panel lo
+            usará solo.{" "}
+          </>
+        )}
         Cómo se cruza: GoHighLevel guarda en cada contacto el número del anuncio que lo trajo y el enlace de la publicación (Facebook o Instagram). Meta no informa la ubicación exacta (Reels, Feed, Historias) de cada persona, por eso no se muestra aquí.
       </p>
     </div>

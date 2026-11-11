@@ -29,6 +29,9 @@ interface GhlContact {
   lastName?: string;
   phone?: string;
   dateAdded: string;
+  dateUpdated?: string;
+  assignedTo?: string;
+  customFields?: { id: string; value?: unknown }[];
   attributionSource?: Attribution;
   lastAttributionSource?: Attribution;
   searchAfter: [number, string];
@@ -75,8 +78,48 @@ async function connectionsFor(campaignId: string): Promise<Connection[]> {
   return pick.length ? pick : all;
 }
 
+const norm = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+// Campo "ID Plataforma" (FTD), un posible campo de fecha del FTD y los asesores.
+async function locationMeta(conn: Connection) {
+  const [fields, users] = await Promise.all([
+    ghlFetch(`${GHL_BASE_URL}/locations/${conn.location_id}/customFields`, { headers: headers(conn.access_token, "2021-07-28") }).catch(() => ({})),
+    ghlFetch(`${GHL_BASE_URL}/users/?locationId=${conn.location_id}`, { headers: headers(conn.access_token, "2021-07-28") }).catch(() => ({})),
+  ]);
+  const list = ((fields as { customFields?: { id: string; name?: string; dataType?: string }[] }).customFields ?? []);
+  const ftd = list.find((f) => norm(f.name ?? "").includes("idplataforma"));
+  const ftdDate = list.find((f) => {
+    const n = norm(f.name ?? "");
+    return f.dataType === "DATE" && (n.includes("fechaftd") || n.includes("ftdfecha") || n.includes("fechaidplataforma"));
+  });
+  const names = new Map<string, string>();
+  for (const u of ((users as { users?: { id: string; name?: string; firstName?: string; lastName?: string }[] }).users ?? [])) {
+    names.set(u.id, u.name || [u.firstName, u.lastName].filter(Boolean).join(" ") || u.id);
+  }
+  return { ftdId: ftd?.id ?? null, ftdDateId: ftdDate?.id ?? null, users: names };
+}
+
+function fieldValue(c: GhlContact, id: string | null): string | null {
+  if (!id) return null;
+  const v = c.customFields?.find((f) => f.id === id)?.value;
+  const s = v === undefined || v === null ? "" : String(v).trim();
+  return s || null;
+}
+
+function toIso(v: string | null): string | null {
+  if (!v) return null;
+  const d = /^\d+$/.test(v) ? new Date(Number(v)) : new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 async function contactsOf(conn: Connection, adIds: Set<string>, start: Date, end: Date) {
   const out: ContactoCampana[] = [];
+  const meta = await locationMeta(conn);
   let searchAfter: [number, string] | null = null;
   let truncated = false;
   for (let page = 0; page < MAX_PAGES; page++) {
@@ -106,6 +149,8 @@ async function contactsOf(conn: Connection, adIds: Set<string>, start: Date, end
       const hit = first?.adId && adIds.has(first.adId) ? first : last?.adId && adIds.has(last.adId) ? last : null;
       if (!hit?.adId) continue;
       const name = c.contactName || [c.firstName, c.lastName].filter(Boolean).join(" ") || c.phone || "Sin nombre";
+      const ftd = fieldValue(c, meta.ftdId);
+      const exactDate = ftd ? toIso(fieldValue(c, meta.ftdDateId)) : null;
       out.push({
         id: c.id,
         crm_id: conn.id,
@@ -116,13 +161,17 @@ async function contactsOf(conn: Connection, adIds: Set<string>, start: Date, end
         date: c.dateAdded,
         ad_id: hit.adId,
         red: redDe(hit),
+        asesor: c.assignedTo ? meta.users.get(c.assignedTo) ?? (meta.users.size ? "Asesor sin nombre" : "Asignado (sin permiso para ver el nombre)") : null,
+        ftd,
+        ftd_date: ftd ? exactDate ?? c.dateUpdated ?? null : null,
+        ftd_date_exact: !!exactDate,
       });
     }
     if (older || contacts.length < 100) break;
     searchAfter = contacts[contacts.length - 1].searchAfter;
     if (page === MAX_PAGES - 1) truncated = true;
   }
-  return { contacts: out, truncated };
+  return { contacts: out, truncated, hasFtd: !!meta.ftdId };
 }
 
 export async function fetchCampaignContacts(opts: { campaignId: string; adIds: string[]; start: Date; end: Date }) {
@@ -143,6 +192,7 @@ export async function fetchCampaignContacts(opts: { campaignId: string; adIds: s
     truncated: results.some((r) => r.truncated),
     errors: results.map((r) => ("error" in r ? r.error : null)).filter(Boolean) as string[],
     crms: [...new Set(contacts.map((c) => c.crm_name))],
+    ftd_field: results.some((r) => "hasFtd" in r && r.hasFtd),
   };
 }
 
