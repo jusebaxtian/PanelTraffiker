@@ -58,7 +58,7 @@ export default function ContactsTab({ data }: { data: CampaignAnalysis }) {
     const byAd = new Map<string, ContactoCampana[]>();
     contacts.filter((c) => !onlyFtd || c.ftd).forEach((c) => byAd.set(c.ad_id, [...(byAd.get(c.ad_id) ?? []), c]));
     return data.ads
-      .map((ad) => ({ ad, list: byAd.get(ad.ad_id) ?? [] }))
+      .map((ad) => ({ ad, list: [...(byAd.get(ad.ad_id) ?? [])].sort((a, b) => Number(!!b.ftd) - Number(!!a.ftd) || b.date.localeCompare(a.date)) }))
       .filter((g) => g.list.length > 0 || (!onlyFtd && g.ad.results > 0))
       .sort((a, b) => b.list.length - a.list.length || b.ad.results - a.ad.results);
   }, [contacts, data.ads, onlyFtd]);
@@ -199,7 +199,7 @@ export default function ContactsTab({ data }: { data: CampaignAnalysis }) {
                   )}
                   {res.ftd_field && !onlyFtd && (
                     <>
-                      {" "}· <b style={{ color: adFtd ? "var(--good)" : "var(--text-muted)" }}>{adFtd} FTDs</b>
+                      {" "}· <b style={{ color: adFtd ? "var(--good)" : "var(--text-muted)" }}>{adFtd} {adFtd === 1 ? "FTD" : "FTDs"}</b>
                       {adFtd > 0 && ` (${money(ad.spend / adFtd)} c/u)`}
                     </>
                   )}
@@ -231,7 +231,7 @@ export default function ContactsTab({ data }: { data: CampaignAnalysis }) {
                       <th className="py-2 text-left font-medium">Asesor</th>
                       <th className="py-2 text-left font-medium">Entró al CRM</th>
                       <th className="py-2 text-left font-medium">Llenó FTD</th>
-                      <th className="py-2 text-right font-medium">Días</th>
+                      <th className="py-2 pr-4 text-right font-medium">Días</th>
                       <th className="py-2 text-left font-medium">Anuncio</th>
                       <th className="py-2 text-left font-medium">Conjunto</th>
                       <th className="py-2 text-left font-medium">Campaña</th>
@@ -261,7 +261,7 @@ export default function ContactsTab({ data }: { data: CampaignAnalysis }) {
                         >
                           {c.ftd && c.ftd_date ? fmtDate(c.ftd_date) + (c.ftd_date_exact ? "" : " *") : "-"}
                         </td>
-                        <td className="whitespace-nowrap py-2 pr-2 text-right tabular-nums" style={{ color: "var(--text-primary)" }}>
+                        <td className="whitespace-nowrap py-2 pr-4 text-right tabular-nums" style={{ color: "var(--text-primary)" }}>
                           {daysLabel(ftdDays(c))}
                         </td>
                         <td className="py-2 pr-2">
