@@ -7,7 +7,6 @@ import type { CampaignAnalysis } from "@/lib/analizarCampanaTypes";
 import { ftdDays, ghlContactUrl, type ContactoCampana, type ContactosResponse } from "@/lib/campanaContactosTypes";
 
 const PAGE = 50;
-const money = (n: number) => "$" + Math.round(n).toLocaleString("es-CO");
 const cardStyle = { background: "var(--surface)", border: "1px solid var(--border)" } as const;
 const RED_COLOR: Record<string, string> = { Facebook: "#1877F2", Instagram: "#E1306C", "Sin dato": "var(--text-muted)" };
 
@@ -141,11 +140,6 @@ export default function ContactsTab({ data }: { data: CampaignAnalysis }) {
               <b style={{ color: "var(--good)" }}>{ftds.length}</b> FTDs (ID Plataforma lleno)
             </span>
             {contacts.length > 0 && <span style={{ color: "var(--text-secondary)" }}>{((ftds.length / contacts.length) * 100).toFixed(1)}% de los que llegaron</span>}
-            {ftds.length > 0 && (
-              <span style={{ color: "var(--text-secondary)" }}>
-                Costo por FTD: <b>{money(data.totals.spend / ftds.length)}</b>
-              </span>
-            )}
             {avgDays !== null && <span style={{ color: "var(--text-secondary)" }}>Demoran en promedio {avgDays.toFixed(1)} días</span>}
             <label className="ml-auto flex cursor-pointer items-center gap-1.5 text-xs" style={{ color: "var(--text-secondary)" }}>
               <input type="checkbox" checked={onlyFtd} onChange={(e) => setOnlyFtd(e.target.checked)} />
@@ -200,7 +194,6 @@ export default function ContactsTab({ data }: { data: CampaignAnalysis }) {
                   {res.ftd_field && !onlyFtd && (
                     <>
                       {" "}· <b style={{ color: adFtd ? "var(--good)" : "var(--text-muted)" }}>{adFtd} {adFtd === 1 ? "FTD" : "FTDs"}</b>
-                      {adFtd > 0 && ` (${money(ad.spend / adFtd)} c/u)`}
                     </>
                   )}
                 </p>
