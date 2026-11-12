@@ -1,0 +1,17 @@
+# Cada 5 minutos revisa si alguna cuenta publicitaria cambió de estado de
+# pago (Activa, Periodo de gracia, Sin liquidar) y avisa por Telegram.
+# GitHub puede retrasar las ejecuciones programadas algunos minutos.
+name: Estado de pago de cuentas publicitarias
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  revisar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Revisar estados
+        run: curl -fsS --max-time 90 https://panel-traffiker.vercel.app/api/telegram/account-status
