@@ -8,6 +8,7 @@ import TagChips from "@/components/TagChips";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 interface EnrichedInsight extends AdInsight {
+  account_name?: string | null; // administrador (cuenta publicitaria)
   result: number;
   status?: string;
   objective?: string;
@@ -501,7 +502,7 @@ export default function Home() {
                                   className="text-xs"
                                   style={{ color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}
                                 >
-                                  {row.account_id?.replace("act_", "")}
+                                  {row.account_name ?? row.account_id?.replace("act_", "")}
                                 </div>
                               </div>
                             </div>

@@ -83,6 +83,7 @@ export async function GET(request: NextRequest) {
         return {
           ...row,
           result: conversationsStarted(row),
+          account_name: campaign?.account_name ?? null,
           status: campaign?.effective_status ?? campaign?.status,
           objective: campaign?.objective,
           daily_budget: campaign?.daily_budget,
