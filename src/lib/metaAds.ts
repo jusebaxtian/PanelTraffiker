@@ -192,6 +192,8 @@ export interface Campaign {
   status?: string;
   effective_status?: string;
   daily_budget?: string;
+  // "campaign" = presupuesto de campaña; "adset" = suma de los conjuntos activos
+  budget_level?: "campaign" | "adset";
 }
 
 // Orden de prioridad: se usa el PRIMER tipo de acción disponible, nunca se
@@ -429,7 +431,47 @@ export async function fetchAccountCampaigns(adAccountId: string, accessToken: st
     nextUrl = json.paging?.next ?? null;
   }
 
+  // Campañas con presupuesto por conjunto (sin daily_budget propio): el
+  // presupuesto diario es la suma de sus conjuntos activos. Si esta consulta
+  // falla, las campañas se devuelven igual, solo sin ese dato.
+  for (const c of results) if (c.daily_budget) c.budget_level = "campaign";
+  if (results.some((c) => !c.daily_budget && c.effective_status === "ACTIVE")) {
+    const byCampaign = await fetchActiveAdsetBudgets(adAccountId, accessToken).catch(() => new Map<string, number>());
+    for (const c of results) {
+      if (!c.daily_budget && byCampaign.has(c.id)) {
+        c.daily_budget = String(byCampaign.get(c.id));
+        c.budget_level = "adset";
+      }
+    }
+  }
+
   return results;
+}
+
+async function fetchActiveAdsetBudgets(adAccountId: string, accessToken: string): Promise<Map<string, number>> {
+  const url = new URL(`${META_BASE_URL}/${adAccountId}/adsets`);
+  url.searchParams.set("access_token", accessToken);
+  url.searchParams.set("fields", "campaign_id,daily_budget");
+  url.searchParams.set("effective_status", '["ACTIVE"]');
+  url.searchParams.set("limit", "500");
+
+  const sums = new Map<string, number>();
+  let nextUrl: string | null = url.toString();
+  while (nextUrl) {
+    const res: Response = await fetch(nextUrl);
+    const json: {
+      data?: { campaign_id?: string; daily_budget?: string }[];
+      paging?: { next?: string };
+      error?: { message: string };
+    } = await res.json();
+    if (json.error) throw new Error(json.error.message);
+    for (const s of json.data ?? []) {
+      if (!s.campaign_id || !s.daily_budget) continue;
+      sums.set(s.campaign_id, (sums.get(s.campaign_id) ?? 0) + Number(s.daily_budget));
+    }
+    nextUrl = json.paging?.next ?? null;
+  }
+  return sums;
 }
 
 export async function fetchAllAccountsCampaigns(): Promise<Campaign[]> {

@@ -87,6 +87,7 @@ export async function GET(request: NextRequest) {
           status: campaign?.effective_status ?? campaign?.status,
           objective: campaign?.objective,
           daily_budget: campaign?.daily_budget,
+          budget_level: campaign?.budget_level ?? null,
           today_spend: row.campaign_id ? todaySpendByCampaign.get(row.campaign_id) ?? 0 : 0,
           leads_crm: leadsCrm,
           crm_connection_id: link?.crm_connection_id ?? null,

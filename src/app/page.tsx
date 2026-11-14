@@ -13,6 +13,7 @@ interface EnrichedInsight extends AdInsight {
   status?: string;
   objective?: string;
   daily_budget?: string;
+  budget_level?: "campaign" | "adset" | null;
   today_spend: number;
   leads_crm: number | null;
   crm_connection_id: string | null;
@@ -86,6 +87,7 @@ const COLUMNS = [
   { key: "result", label: "Resultado", defaultWidth: 110 },
   { key: "leadsCrm", label: "Leads/CRM", defaultWidth: 130 },
   { key: "costPerResult", label: "Costo/resultado", defaultWidth: 140 },
+  { key: "dailyBudget", label: "Presupuesto diario", defaultWidth: 150 },
   { key: "spend", label: "Gasto", defaultWidth: 120 },
   { key: "todaySpend", label: "Gasto hoy", defaultWidth: 120 },
   { key: "ctr", label: "CTR", defaultWidth: 90 },
@@ -542,6 +544,14 @@ export default function Home() {
                             {currency(costPerRowResult)}
                           </td>
                           <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
+                            {row.daily_budget ? currency(Number(row.daily_budget)) : "-"}
+                            {row.daily_budget && row.budget_level === "adset" && (
+                              <div className="text-xs" style={{ color: "var(--text-muted)" }} title="La campaña no tiene presupuesto propio: es la suma de sus conjuntos activos">
+                                suma de conjuntos
+                              </div>
+                            )}
+                          </td>
+                          <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
                             {currency(Number(row.spend ?? 0))}
                           </td>
                           <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
@@ -708,6 +718,9 @@ function ChildRowTr({
       </td>
       <td className="overflow-hidden px-4 py-2" style={cellStyle}>
         {currency(costPerRowResult)}
+      </td>
+      <td className="overflow-hidden px-4 py-2" style={cellStyle}>
+        -
       </td>
       <td className="overflow-hidden px-4 py-2" style={cellStyle}>
         {currency(Number(row.spend ?? 0))}
