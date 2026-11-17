@@ -12,7 +12,18 @@ interface ApiConnection {
   verified_name: string | null;
   business_name: string | null;
   quality_rating: "GREEN" | "YELLOW" | "RED" | "UNKNOWN" | null;
+  messaging_limit: string | null;
   error: string | null;
+}
+
+// TIER_10K -> "10.000 / 24 h", TIER_UNLIMITED -> "Ilimitado"
+function limitLabel(tier: string | null) {
+  if (!tier) return "-";
+  const t = tier.replace(/^TIER_/, "");
+  if (t === "UNLIMITED") return "Ilimitado";
+  const m = t.match(/^(\d+)(K)?$/);
+  if (!m) return t;
+  return `${(Number(m[1]) * (m[2] ? 1000 : 1)).toLocaleString("es-CO")} / 24 h`;
 }
 
 function qualityMeta(q: ApiConnection["quality_rating"], error: string | null) {
@@ -358,7 +369,7 @@ export default function StatusApiPage() {
               <table className="w-full text-left text-sm" style={{ minWidth: 760 }}>
                 <thead>
                   <tr style={{ borderBottom: "1px solid var(--gridline)" }}>
-                    {["Número de API", "Nombre", "Portafolio", "Calidad", ""].map((h) => (
+                    {["Número de API", "Nombre", "Portafolio", "Calidad", "Límite", ""].map((h) => (
                       <th
                         key={h}
                         className="px-4 py-3 text-xs font-medium uppercase tracking-wide"
@@ -375,7 +386,7 @@ export default function StatusApiPage() {
                       {groupByPortfolio && g.portfolio && (
                         <tr key={`header-${g.portfolio}`}>
                           <td
-                            colSpan={5}
+                            colSpan={6}
                             className="px-4 py-2 text-xs font-semibold uppercase tracking-wide"
                             style={{ background: "rgba(255,255,255,0.04)", color: "var(--text-muted)" }}
                           >
@@ -388,7 +399,7 @@ export default function StatusApiPage() {
                     const isEditing = editingId === c.id;
                     return isEditing ? (
                       <tr key={c.id} style={{ borderTop: idx === 0 ? "none" : "1px solid var(--gridline)" }}>
-                        <td colSpan={5} className="px-4 py-3">
+                        <td colSpan={6} className="px-4 py-3">
                           <div className="flex flex-wrap items-center gap-2">
                             <input
                               type="text"
@@ -465,6 +476,13 @@ export default function StatusApiPage() {
                             {q.label}
                           </span>
                         </td>
+                        <td
+                          className="px-4 py-3"
+                          style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}
+                          title="Conversaciones que la empresa puede iniciar en 24 horas (límite del portafolio en Meta)"
+                        >
+                          {limitLabel(c.messaging_limit)}
+                        </td>
                         <td className="px-4 py-3 text-right">
                           {isSuperAdmin && (
                             <span className="inline-flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
@@ -494,7 +512,7 @@ export default function StatusApiPage() {
                   ))}
                   {filteredConnections.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-4 py-6 text-center" style={{ color: "var(--text-muted)" }}>
+                      <td colSpan={6} className="px-4 py-6 text-center" style={{ color: "var(--text-muted)" }}>
                         {connections.length === 0
                           ? "No hay cuentas vinculadas todavía."
                           : "Ninguna cuenta coincide con los filtros."}
