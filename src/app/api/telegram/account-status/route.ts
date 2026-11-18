@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { checkAdAccountStatusChanges } from "@/lib/adStatusWatch";
+import { checkSpendGoals } from "@/lib/spendGoalWatch";
 
 // Revisión frecuente del estado de pago de las cuentas publicitarias
 // (Activa, Periodo de gracia, Sin liquidar…). La llama GitHub Actions cada
@@ -22,6 +23,8 @@ export async function GET() {
       return NextResponse.json({ ok: true, skipped: true });
     }
     const { changed } = await checkAdAccountStatusChanges();
+    // Metas de gasto mensual (p. ej. Elite noviembre): avisa al acercarse y al cumplirla.
+    await checkSpendGoals().catch(() => null);
     return NextResponse.json({ ok: true, changed });
   } catch {
     return NextResponse.json({ ok: false }, { status: 500 });
