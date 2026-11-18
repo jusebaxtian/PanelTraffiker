@@ -42,3 +42,9 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
 }
+
+/* Dashboard: con border-collapse: separate (necesario para la columna fija)
+   las líneas de fila se pintan en las celdas, no en el <tr>. */
+.dash-table tbody tr + tr > td {
+  border-top: 1px solid var(--gridline);
+}

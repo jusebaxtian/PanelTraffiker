@@ -98,12 +98,18 @@ const COLUMNS = [
 ] as const;
 
 const COLUMN_WIDTHS_STORAGE_KEY = "paneltraffiker.columnWidths";
+
+// Columna de campaña fija a la izquierda al deslizar la tabla (fondo sólido
+// para que las otras columnas no se vean por detrás).
+const STICKY_LEFT = { position: "sticky" as const, left: 0, borderRight: "1px solid var(--gridline)" };
+const CHILD_STICKY_BG = "linear-gradient(rgba(255,255,255,0.02), rgba(255,255,255,0.02)), var(--surface)";
 const MIN_COLUMN_WIDTH = 70;
 
 function useColumnWidths() {
   const [widths, setWidths] = useState<Record<string, number>>(() => {
-    const defaults = Object.fromEntries(COLUMNS.map((c) => [c.key, c.defaultWidth]));
+    const defaults: Record<string, number> = Object.fromEntries(COLUMNS.map((c) => [c.key, c.defaultWidth]));
     if (typeof window === "undefined") return defaults;
+    if (window.innerWidth < 640) defaults.campaign = 170;
     try {
       const stored = window.localStorage.getItem(COLUMN_WIDTHS_STORAGE_KEY);
       return stored ? { ...defaults, ...JSON.parse(stored) } : defaults;
@@ -438,10 +444,10 @@ export default function Home() {
               className="overflow-hidden rounded-lg"
               style={{ border: "1px solid var(--border)", background: "var(--surface)" }}
             >
-              <div className="overflow-x-auto">
+              <div className="overflow-auto" style={{ maxHeight: "calc(100vh - 120px)" }}>
                 <table
-                  className="w-full text-left text-sm"
-                  style={{ tableLayout: "fixed", minWidth: 1000 }}
+                  className="dash-table w-full text-left text-sm"
+                  style={{ tableLayout: "fixed", minWidth: 1000, borderCollapse: "separate", borderSpacing: 0 }}
                 >
                   <colgroup>
                     {COLUMNS.map((col) => (
@@ -450,11 +456,19 @@ export default function Home() {
                   </colgroup>
                   <thead>
                     <tr style={{ borderBottom: "1px solid var(--gridline)" }}>
-                      {COLUMNS.map((col) => (
+                      {COLUMNS.map((col, colIdx) => (
                         <th
                           key={col.key}
-                          className="relative select-none whitespace-nowrap px-4 py-3 text-xs font-medium uppercase tracking-wide"
-                          style={{ color: "var(--text-muted)" }}
+                          className="select-none whitespace-nowrap px-4 py-3 text-xs font-medium uppercase tracking-wide"
+                          style={{
+                            color: "var(--text-muted)",
+                            position: "sticky",
+                            top: 0,
+                            zIndex: colIdx === 0 ? 30 : 20,
+                            ...(colIdx === 0 ? STICKY_LEFT : {}),
+                            background: "var(--surface)",
+                            borderBottom: "1px solid var(--gridline)",
+                          }}
                         >
                           {col.label}
                           <span
@@ -484,7 +498,7 @@ export default function Home() {
                         <tr
                           style={{ borderTop: idx === 0 ? "none" : "1px solid var(--gridline)" }}
                         >
-                          <td className="overflow-hidden px-4 py-3">
+                          <td className="overflow-hidden px-4 py-2" style={{ ...STICKY_LEFT, zIndex: 10, background: "var(--surface)" }}>
                             <div className="flex items-start gap-1.5">
                               {campaignId && (
                                 <button
@@ -509,7 +523,7 @@ export default function Home() {
                               </div>
                             </div>
                           </td>
-                          <td className="overflow-hidden px-4 py-3">
+                          <td className="overflow-hidden px-4 py-2">
                             <span
                               className="rounded-full px-2 py-0.5 text-xs font-medium"
                               style={{
@@ -520,10 +534,10 @@ export default function Home() {
                               {humanize(row.status)}
                             </span>
                           </td>
-                          <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
+                          <td className="overflow-hidden px-4 py-2" style={{ color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
                             {number(row.result)}
                           </td>
-                          <td className="overflow-hidden px-4 py-3" style={{ color: "var(--series-2)", fontVariantNumeric: "tabular-nums" }}>
+                          <td className="overflow-hidden px-4 py-2" style={{ color: "var(--series-2)", fontVariantNumeric: "tabular-nums" }}>
                             {row.leads_crm !== null ? number(row.leads_crm) : "-"}
                             {row.campaign_id && isSuperAdmin && (
                               <button
@@ -540,10 +554,10 @@ export default function Home() {
                               </span>
                             )}
                           </td>
-                          <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+                          <td className="overflow-hidden px-4 py-2" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
                             {currency(costPerRowResult)}
                           </td>
-                          <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
+                          <td className="overflow-hidden px-4 py-2" style={{ color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
                             {row.daily_budget ? currency(Number(row.daily_budget)) : "-"}
                             {row.daily_budget && row.budget_level === "adset" && (
                               <div className="text-xs" style={{ color: "var(--text-muted)" }} title="La campaña no tiene presupuesto propio: es la suma de sus conjuntos activos">
@@ -551,25 +565,25 @@ export default function Home() {
                               </div>
                             )}
                           </td>
-                          <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
+                          <td className="overflow-hidden px-4 py-2" style={{ color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
                             {currency(Number(row.spend ?? 0))}
                           </td>
-                          <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+                          <td className="overflow-hidden px-4 py-2" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
                             {currency(row.today_spend)}
                           </td>
-                          <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+                          <td className="overflow-hidden px-4 py-2" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
                             {Number(row.ctr ?? 0).toFixed(2)}%
                           </td>
-                          <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+                          <td className="overflow-hidden px-4 py-2" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
                             {Number(row.frequency ?? 0).toFixed(2)}
                           </td>
-                          <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+                          <td className="overflow-hidden px-4 py-2" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
                             {number(Number(row.unique_clicks ?? 0))}
                           </td>
-                          <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+                          <td className="overflow-hidden px-4 py-2" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
                             {video3SecWatchRate(row).toFixed(2)}%
                           </td>
-                          <td className="overflow-hidden px-4 py-3" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+                          <td className="overflow-hidden px-4 py-2" style={{ color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
                             {videoAvgTimeWatched(row).toFixed(1)}s
                           </td>
                         </tr>
@@ -676,7 +690,10 @@ function ChildRowTr({
   const cellStyle = { color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" as const };
   return (
     <tr style={{ borderTop: "1px solid var(--gridline)", background: "rgba(255,255,255,0.02)" }}>
-      <td className="overflow-hidden px-4 py-2" style={{ paddingLeft: 16 + indent * 20 }}>
+      <td
+        className="overflow-hidden px-4 py-2"
+        style={{ paddingLeft: 16 + indent * 20, ...STICKY_LEFT, zIndex: 10, background: CHILD_STICKY_BG }}
+      >
         <div className="flex items-center gap-1.5">
           {expandable && (
             <button onClick={onToggle} className="shrink-0 text-xs" style={{ color: "var(--text-muted)" }} title="Ver anuncios">
@@ -750,14 +767,14 @@ function ChildRowTr({
 function StatTile({ label, value, accent }: { label: string; value: string; accent?: string }) {
   return (
     <div
-      className="rounded-lg p-4"
+      className="rounded-lg p-3 sm:p-4"
       style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
     >
       <p className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
         {label}
       </p>
       <p
-        className="mt-1 text-2xl font-semibold"
+        className="mt-1 text-xl font-semibold sm:text-2xl"
         style={{ color: accent ?? "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}
       >
         {value}
