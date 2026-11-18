@@ -520,6 +520,14 @@ export default function Home() {
                                 >
                                   {row.account_name ?? row.account_id?.replace("act_", "")}
                                 </div>
+                                {row.account_name && row.account_id && (
+                                  <div
+                                    className="text-xs"
+                                    style={{ color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}
+                                  >
+                                    ID {row.account_id.replace("act_", "")}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </td>
