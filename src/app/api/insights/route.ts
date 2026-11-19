@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   fetchAllAccountsInsights,
   fetchAllAccountsCampaigns,
+  fetchAllAccountsBilling,
   conversationsStarted,
+  type AdInsight,
 } from "@/lib/metaAds";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { countContactsByTagInMonth } from "@/lib/ghl";
@@ -30,17 +32,47 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = supabaseServer();
-    const [insights, todayInsights, campaigns, { data: links }, { data: crmConnections }] = await Promise.all([
+    const [metaInsights, todayInsights, campaigns, billing, { data: links }, { data: crmConnections }] = await Promise.all([
       fetchAllAccountsInsights(timeRange ? { timeRange } : { datePreset }),
       isToday
         ? Promise.resolve<Awaited<ReturnType<typeof fetchAllAccountsInsights>>>([])
         : fetchAllAccountsInsights({ datePreset: "today" }),
       fetchAllAccountsCampaigns(),
+      fetchAllAccountsBilling().catch(() => []),
       supabase.from("dashboard_campaign_crm_links").select("campaign_id, crm_connection_id, ghl_tag"),
       supabase.from("proyeccion_crm_connections").select("id, location_id, access_token"),
     ]);
 
     const campaignById = new Map(campaigns.map((c) => [c.id, c]));
+
+    // Meta solo devuelve métricas de campañas que gastaron en el rango, así
+    // que una campaña activa que aún no entrega (p. ej. temprano en el día)
+    // no salía en la tabla. Se agregan en cero, salvo las de cuentas
+    // deshabilitadas o cerradas, cuyas campañas "activas" no pueden entregar.
+    const blockedAccounts = new Set(
+      billing.filter((b) => b.accountStatus === 2 || b.accountStatus === 101).map((b) => b.accountId.replace("act_", ""))
+    );
+    const withData = new Set(metaInsights.map((i) => i.campaign_id));
+    const idleActive: AdInsight[] = campaigns
+      .filter(
+        (c) =>
+          c.effective_status === "ACTIVE" &&
+          !withData.has(c.id) &&
+          !blockedAccounts.has((c.account_id ?? "").replace("act_", ""))
+      )
+      .map((c) => ({
+        account_id: c.account_id ?? "",
+        campaign_id: c.id,
+        campaign_name: c.name,
+        spend: "0",
+        impressions: "0",
+        clicks: "0",
+        reach: "0",
+        ctr: "0",
+        frequency: "0",
+        unique_clicks: "0",
+      }));
+    const insights = [...metaInsights, ...idleActive];
     const todaySpendByCampaign = new Map(
       (isToday ? insights : todayInsights).map((i) => [i.campaign_id, Number(i.spend ?? 0)])
     );
