@@ -65,6 +65,7 @@ export default function ProyeccionPage() {
   const [crmPickerForId, setCrmPickerForId] = useState<string | null>(null);
   const [cacheInfo, setCacheInfo] = useState<{ updatedAt: string; forceRemaining: number; nextWindowAt: string } | null>(null);
   const [closing, setClosing] = useState(false);
+  const [officeSearch, setOfficeSearch] = useState("");
 
   function loadConfig(monthKey: string) {
     return fetch(`/api/proyeccion/config/${monthKey}`)
@@ -213,6 +214,15 @@ export default function ProyeccionPage() {
     setOffices((prev) => prev.filter((o) => o.id !== id));
     await fetch(`/api/proyeccion/offices/${id}`, { method: "DELETE" });
   }
+
+  const normalize = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const searchTerm = normalize(officeSearch.trim());
+  const visibleOffices = searchTerm
+    ? offices.filter((o) => {
+        const linked = distribucionOffices.find((d) => d.id === o.distribucion_office_id)?.name ?? "";
+        return normalize(`${o.asignacion} ${linked}`).includes(searchTerm);
+      })
+    : offices;
 
   const totals = offices.reduce(
     (acc, o) => {
@@ -391,10 +401,28 @@ export default function ProyeccionPage() {
           </p>
         )}
 
+        {!loading && offices.length > 0 && (
+          <div className="mb-3 flex items-center gap-2">
+            <input
+              type="search"
+              placeholder="Buscar oficina..."
+              value={officeSearch}
+              onChange={(e) => setOfficeSearch(e.target.value)}
+              className="w-full rounded-lg px-3 py-2 text-sm outline-none sm:max-w-72"
+              style={{ background: "var(--surface)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+            />
+            {officeSearch.trim() && (
+              <span className="whitespace-nowrap text-xs" style={{ color: "var(--text-muted)" }}>
+                {visibleOffices.length} de {offices.length}
+              </span>
+            )}
+          </div>
+        )}
+
         {!loading && (
           <div className="overflow-hidden rounded-lg" style={{ border: "1px solid var(--border)", background: "var(--surface)" }}>
-            <div className="overflow-x-auto">
-              <table className="text-left text-sm" style={{ tableLayout: "fixed", minWidth: 1850 }}>
+            <div className="overflow-auto" style={{ maxHeight: "calc(100vh - 140px)" }}>
+              <table className="text-left text-sm" style={{ tableLayout: "fixed", minWidth: 1850, borderCollapse: "separate", borderSpacing: 0 }}>
                 <colgroup>
                   <col style={{ width: 190 }} />
                   <col style={{ width: 170 }} />
@@ -431,7 +459,16 @@ export default function ProyeccionPage() {
                       <th
                         key={i}
                         className="whitespace-nowrap px-3 py-3 text-xs font-medium uppercase tracking-wide"
-                        style={{ color: "var(--text-muted)" }}
+                        style={{
+                          color: "var(--text-muted)",
+                          position: "sticky",
+                          top: 0,
+                          zIndex: i === 0 ? 30 : 20,
+                          left: i === 0 ? 0 : undefined,
+                          background: "var(--surface)",
+                          borderBottom: "1px solid var(--gridline)",
+                          borderRight: i === 0 ? "1px solid var(--gridline)" : undefined,
+                        }}
                       >
                         {h}
                       </th>
@@ -439,7 +476,7 @@ export default function ProyeccionPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {offices.map((o, idx) => (
+                  {visibleOffices.map((o, idx) => (
                     <OfficeRow
                       key={o.id}
                       office={o}
@@ -460,6 +497,13 @@ export default function ProyeccionPage() {
                     <tr>
                       <td colSpan={14} className="px-4 py-6 text-center" style={{ color: "var(--text-muted)" }}>
                         No hay oficinas en la proyección todavía.
+                      </td>
+                    </tr>
+                  )}
+                  {offices.length > 0 && visibleOffices.length === 0 && (
+                    <tr>
+                      <td colSpan={14} className="px-4 py-6 text-left" style={{ color: "var(--text-muted)" }}>
+                        Ninguna oficina coincide con «{officeSearch.trim()}».
                       </td>
                     </tr>
                   )}
@@ -551,8 +595,11 @@ function OfficeRow({
   };
 
   return (
-    <tr className="group" style={{ borderTop: idx === 0 ? "none" : "1px solid var(--gridline)" }}>
-      <td className="px-3 py-2">
+    <tr className="group proy-row" data-first={idx === 0 ? "1" : undefined}>
+      <td
+        className="px-3 py-2"
+        style={{ position: "sticky", left: 0, zIndex: 10, background: "var(--surface)", borderRight: "1px solid var(--gridline)" }}
+      >
         <input
           type="text"
           defaultValue={office.asignacion}

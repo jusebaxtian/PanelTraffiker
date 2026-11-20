@@ -48,3 +48,5 @@ body {
 .dash-table tbody tr + tr > td {
   border-top: 1px solid var(--gridline);
 }
+
+.proy-row:not([data-first]) > td { border-top: 1px solid var(--gridline); }
